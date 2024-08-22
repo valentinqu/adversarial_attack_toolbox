@@ -20,7 +20,7 @@ from lime import lime_image
 # from skimage.segmentation import mark_boundaries
 
 
-class CleverScoreCalculator:
+class CleverScoreCalculator(object):
     def __init__(self, model, criterion, optimizer, input_shape, nb_classes, 
                  #transf, 
                  #x_train=None, 
