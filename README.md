@@ -5,10 +5,10 @@ This repository contains a set of utilities for evaluating and performing advers
 ## **Features**
 
 - **[CLEVER Scores Calculation](https://openreview.net/pdf?id=BkUHlMZ0b)**: Assess the robustness of a model by calculating CLEVER scores.  
-  A higher CLEVER score indicates better network robustness, as the smallest hostile disturbance may have a larger Lp norm. The value range depends on the radius size, which is 0-5 by default, and can be modified in the function `utils/compute_untargeted_clever()`.
+  A higher CLEVER score indicates better network robustness, as the smallest hostile disturbance may have a larger Lp norm. The value range depends on the radius size, which is 0 - 5 by default, and can be modified in the function `utils/compute_untargeted_clever()`.
 
 - **Privacy Assessment**: Evaluate model privacy using [SHAPr leakage metrics](https://arxiv.org/abs/2112.02230).  
-  A higher final SHAPr score for a training sample means it is more vulnerable to privacy attacks. The values range from 0 to 1.
+  A higher final SHAPr score for a training sample means it is more vulnerable to privacy attacks. The values range from 0 - 1.
 
 - **Data Poisoning**: Perform data poisoning attacks to evaluate model resilience against adversarial examples.  
   The [Hidden Trigger Backdoor Attack Sleeper Agent](https://arxiv.org/pdf/2106.08970) is used for this. The default `class_source` is 0 (source class), and `class_target` is 1 (target class for misclassification). These values can be modified in `toolbox.py/class_source` and `toolbox.py/class_target`.
@@ -80,7 +80,7 @@ Replace <nb_classes> with the number of classes in your dataset.
 To generate poisoned data and evaluate the attack effect, execute:
 
 ```bash
-$ python your_script.py -d <dataset> -t posion -c <nb_classes> -s <patch_size> -test
+$ python your_script.py -d <dataset> -t poison -c <nb_classes> -s <patch_size> -test
 ```
 
 If just need posioned data, execute:
@@ -111,7 +111,7 @@ $ python toolbox.py -d cifar10 -t privacy -c 10
 ```
 ### **3. Perform Data Poisoning:**
 ```bash
-$ python toolbox.py -d cifar10 -t posion -c 10 -s 8 -test
+$ python toolbox.py -d cifar10 -t poison -c 10 -s 8 -test
 ```
 ### **4. Explain Model Predictions:**
 ```bash
@@ -120,4 +120,3 @@ $ python toolbox.py -d cifar10 -t explain -c 10 -ch 3
 
 ## **NOTES**
 - For data poisoning, adjust the patch_size, learning rates, and other parameters as needed.
-- For interpreting single-channel images using LIME, ensure that the input network accepts 3 channels.
