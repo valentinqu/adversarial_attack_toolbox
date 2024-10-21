@@ -60,7 +60,7 @@ Ensure you have Python 3.7 installed, along with the following packages:
 To calculate CLEVER scores for your model, run the following command:
 
 ```bash
-$ python your_script.py -d <dataset> -t robustness -c <nb_classes>
+$ python3 your_script.py -d <dataset> -t robustness -c <nb_classes>
 
 - <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
 - <nb_classes>: Replace with the number of classes in your dataset.
@@ -71,7 +71,7 @@ $ python your_script.py -d <dataset> -t robustness -c <nb_classes>
 To evaluate model privacy using SHAPr leakage, run:
 
 ```bash
-$ python your_script.py -d <dataset>  -t privacy -c <nb_classes>
+$ python3 your_script.py -d <dataset>  -t privacy -c <nb_classes>
 ```
 Replace <nb_classes> with the number of classes in your dataset.
 
@@ -80,13 +80,13 @@ Replace <nb_classes> with the number of classes in your dataset.
 To generate poisoned data and evaluate the attack effect, execute:
 
 ```bash
-$ python your_script.py -d <dataset> -t poison -c <nb_classes> -s <patch_size> -test
+$ python3 your_script.py -d <dataset> -t poison -c <nb_classes> -s <patch_size> -test
 ```
 
 If just need posioned data, execute:
 
 ```bash
-$ python your_script.py -d <dataset> -t poison -c <nb_classes> -s <patch_size>
+$ python3 your_script.py -d <dataset> -t poison -c <nb_classes> -s <patch_size>
 ```
 
 Replace <nb_classes> with the number of classes in your dataset and <patch_size> with the patch size for the poison data.
@@ -103,19 +103,19 @@ Replace <nb_classes> with the number of classes and <num_channels> with the numb
 ## **Example**
 ### **1. Calculate CLEVER Scores:**
 ```bash
-$ python toolbox.py -d cifar10 -t robustness -c 10
+$ python3 toolbox.py -d cifar10 -t robustness -c 10
 ```
 ### **2. Assess Privacy:**
 ```bash
-$ python toolbox.py -d cifar10 -t privacy -c 10
+$ python3 toolbox.py -d cifar10 -t privacy -c 10
 ```
 ### **3. Perform Data Poisoning:**
 ```bash
-$ python toolbox.py -d cifar10 -t poison -c 10 -s 8 -test
+$ python3 toolbox.py -d cifar10 -t poison -c 10 -s 8 -test
 ```
 ### **4. Explain Model Predictions:**
 ```bash
-$ python toolbox.py -d cifar10 -t explain -c 10 -ch 3
+$ python3 toolbox.py -d cifar10 -t explain -c 10 -ch 3
 ```
 
 ## **NOTES**

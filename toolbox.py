@@ -26,7 +26,7 @@ from mydata import load_mydata  # Ensure you have a file named mydata.py contain
 from utils import load_mnist_dataset, load_cifar10_dataset, select_trigger_train, save_poisoned_data, add_trigger_patch, to_one_hot
 
 
-def calculate_sclever_scores(nb_classes, model, x_test, device_type='gpu'):
+def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
     """Calculate untargeted CLEVER scores."""
     device_type = 'gpu' if torch.cuda.is_available() else 'cpu'
     input_shape = x_test.shape[1:]
@@ -288,7 +288,7 @@ if __name__ == '__main__':
 
     # Call the corresponding function based on the provided task
     if args.task_need == 'robustness':
-        calculate_sclever_scores(args.nb_classes, model, x_test)
+        calculate_clever_scores(args.nb_classes, model, x_test)
     elif args.task_need == 'privacy':
         calculate_SHAPr(args.nb_classes, model, x_train, y_train, x_test, y_test)
     elif args.task_need == 'poison':
