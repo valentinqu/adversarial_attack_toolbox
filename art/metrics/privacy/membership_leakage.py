@@ -21,6 +21,7 @@ This module implements membership leakage metrics.
 from __future__ import absolute_import, division, print_function, unicode_literals
 from typing import TYPE_CHECKING, Optional, Tuple
 from enum import Enum, auto
+import logging
 
 import numpy as np
 import scipy
@@ -155,6 +156,7 @@ def SHAPr(  # pylint: disable=C0103
     x_test: np.ndarray,
     y_test: np.ndarray,
     knn_metric: Optional[str] = None,
+    enable_logging: bool = False,
 ) -> np.ndarray:
     """
     Compute the SHAPr membership privacy risk metric for the given classifier and training set.
@@ -173,11 +175,11 @@ def SHAPr(  # pylint: disable=C0103
     :return: an array containing the SHAPr scores for each sample in the training set. The higher the value,
              the higher the privacy leakage for that sample. Any value above 0 should be considered a privacy leak.
     """
-    #print(target_estimator.input_shape[0])
-    #print(x_train.shape[1])
-    #print(type(target_estimator.input_shape[0]))
-    #print(type(x_train.shape[1]))
-    #print(x_train.shape[1] == target_estimator.input_shape[0])
+    if enable_logging:
+        # 配置基本的日志设置
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+
     if target_estimator.input_shape[0] != x_train.shape[1]:
         raise ValueError("Shape of x_train does not match input_shape of classifier")
 
@@ -192,10 +194,24 @@ def SHAPr(  # pylint: disable=C0103
     if y_test.shape[0] != x_test.shape[0]:
         raise ValueError("Number of rows in x_test and y_test do not match")
 
-    print('Calculating SHAPr...')
+    if enable_logging:
+        logger.info('Calculating SHAPr...')
+        logger.info(f'Number of training samples: {x_train.shape[0]}')
+        logger.info(f'Number of test samples: {x_test.shape[0]}')
+    else:
+        print('Calculating SHAPr...')
+
     n_train_samples = x_train.shape[0]
+
+    # make prediction of train_data
     pred_train = target_estimator.predict(x_train)
+    if enable_logging:
+        logger.info('Predictions on training data completed.')
+
+    # make prediction of test_data
     pred_test = target_estimator.predict(x_test)
+    if enable_logging:
+        logger.info('Predictions on test data completed.')
 
     if knn_metric:
         knn = KNeighborsClassifier(metric=knn_metric)
@@ -207,6 +223,9 @@ def SHAPr(  # pylint: disable=C0103
 
     n_test = pred_test.shape[0]
     for i_test in range(n_test):
+        if enable_logging and i_test % 100 == 0:
+            logger.info(f'Processing test sample {i_test + 1}/{n_test}')
+
         results_test = []
         pred = pred_test[i_test]
         y_0 = y_test[i_test]
@@ -239,5 +258,8 @@ def SHAPr(  # pylint: disable=C0103
     per_sample = list(map(list, zip(*results)))
     # normalize so it's comparable across different sizes of train and test datasets
     sum_per_sample = np.array([sum(val) for val in per_sample], dtype=np.float32) * n_train_samples / n_test
+
+    if enable_logging:
+        logger.info('SHAPr calculation completed.')
 
     return sum_per_sample
