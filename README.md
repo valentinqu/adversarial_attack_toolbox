@@ -53,8 +53,30 @@ Ensure you have Python 3.7 installed, along with the following packages:
      ```
    - **Image folder**: Ensure that the image folder contains all image files with filenames matching the names in the CSV.
 
-## **Usage**
+## **Environment Installation Options**
 
+You can set up the environment using either Conda or Docker.
+
+### **Option 1: Using Conda**
+
+To create and activate a Conda environment, follow these steps:
+
+```bash
+conda create -n adversarial_env python=3.7
+conda activate adversarial_env
+pip install requirements.txt
+```
+### **Option 2: Using Docker**
+Alternatively, you can use Docker to set up and run the toolbox. To build and run the Docker container, use the following commands:
+
+```bash
+docker build -t adversarial-attack-toolbox .
+docker run -it --gpus ‘device=0’ adversarial-attack-toolbox
+```
+## **Usage**
+If you are using Docker to set up the environment, run commands directly within the container's command line. 
+
+After starting the Docker container, use the following commands:
 ### **1. Calculate CLEVER Scores**
 
 To calculate CLEVER scores for your model, run the following command:

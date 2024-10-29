@@ -3,4 +3,5 @@ model_path: 'models/mnist_net.pth'
 
 #model_path: 'models/cifar_net.pth'
 
-trigger_path: '/app/trigger/trigger_10.png'
+# trigger_path: '/app/trigger/trigger_10.png' 
+trigger_path: 'trigger/trigger_10.png' 
