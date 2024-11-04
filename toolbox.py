@@ -28,7 +28,7 @@ from utils import load_mnist_dataset, load_cifar10_dataset, select_trigger_train
 
 def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
     """Calculate untargeted CLEVER scores."""
-    device_type = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device_type = '"cuda:0' if torch.cuda.is_available() else 'cpu'
     input_shape = x_test.shape[1:]
     clever_calculator = PyTorchClassifier(
         model=model,
@@ -52,7 +52,7 @@ def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
 
 def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, device_type='gpu'):
     """Calculate SHAPr leakage."""
-    device_type = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device_type = '"cuda:0' if torch.cuda.is_available() else 'cpu'
     input_shape = x_train.shape[1:]
     classifier = PyTorchClassifier(
         model=model,
@@ -65,11 +65,10 @@ def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, device_
 
     SHAPr_leakage = SHAPr(classifier, x_train.numpy(), y_train.numpy(), x_test.numpy(), y_test.numpy(), enable_logging=True)
     print("Average SHAPr leakage: ", np.mean(SHAPr_leakage))
-
-
+    
 def poison(nb_classes, test, trigger_path, patch_size, x_train, x_test, y_train, y_test, min_, max_, model):
     """Perform data poisoning attack."""
-    device_type = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     x_train_np = x_train.numpy().astype(np.float32)
     x_test_np = x_test.numpy().astype(np.float32)
     y_train_np = y_train.numpy()
@@ -81,9 +80,9 @@ def poison(nb_classes, test, trigger_path, patch_size, x_train, x_test, y_train,
     min_, max_ = float(min_), float(max_)
     mean, std = x_train_np.mean(), x_train_np.std()
 
-    optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=True)
     loss_fn = nn.CrossEntropyLoss()
-
+    
     model_art = PyTorchClassifier(
         model=model,
         input_shape=x_train_np.shape[1:],
@@ -94,6 +93,14 @@ def poison(nb_classes, test, trigger_path, patch_size, x_train, x_test, y_train,
         preprocessing=(mean, std),
         device_type=device_type,
     )
+
+    x_train_orig_np = np.copy(x_train_np)
+
+    # test accuracy
+    predictions_benign = model_art.predict(x_test_np)
+    accuracy_benign = np.sum(np.argmax(predictions_benign, axis=1) == np.argmax(y_test_np, axis=1)) / len(y_test_np)
+    print("Accuracy on benign test examples: {}%".format(accuracy_benign * 100))
+
 
     # Handle trigger patch
     img = Image.open(trigger_path)
@@ -129,53 +136,48 @@ def poison(nb_classes, test, trigger_path, patch_size, x_train, x_test, y_train,
         class_target=class_target,
         device_name=device_type,
     )
-    ''' above code for quick check 
-    attack = SleeperAgentAttack(
-        classifier=model_art,
-        percent_poison=0.1,  # Reduce poisoning proportion to 10%
-        max_trials=1,        # Keep number of trials to 1
-        max_epochs=1,        # Reduce max training epochs to 1
-        learning_rate_schedule=(np.array([1e-1]), [0]),  # Use a single learning rate
-        epsilon=8/255,       # Slightly reduce perturbation strength
-        batch_size=32,       # Reduce batch size
-        verbose=1,           # Turn off verbose output
-        indices_target=index_target,  # Use only the first 10 target indices
-        patching_strategy="fixed",         # Use fixed trigger patch location
-        selection_strategy="random",       # Randomly select samples for poisoning
-        patch=patch,
-        retraining_factor=1,   # No additional retraining
-        model_retrain=False,   # Skip model retraining
-        model_retraining_epoch=1,
-        retrain_batch_size=32,
-        class_source=class_source,
-        class_target=class_target,
-        device_name=device_type
-    )
-    '''
+
     # Generate poisoned data
     x_poison, y_poison = attack.poison(x_trigger, y_trigger, x_train_np, y_train_np, x_test_np, y_test_np)
     save_poisoned_data(x_poison, y_poison, class_source, class_target)
 
     indices_poison = attack.get_poison_indices()
+    print("number of indices_poison:", len(indices_poison))
     # np.save('indices_poison.npy', indices_poison)
     # print("indices_poison saved")
 
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=True)
+    model_poisoned = PyTorchClassifier(
+        model=model,
+        input_shape=x_train_np.shape[1:],
+        loss=loss_fn,
+        optimizer=optimizer,
+        nb_classes=nb_classes,
+        clip_values=(min_, max_),
+        preprocessing=(mean, std),
+        device_type=device_type,
+    )
+
     # Check attack effect
     if test:
-        # model_art.fit(x_poison, y_poison, batch_size=128, nb_epochs=150, verbose=1)
-        model_art.fit(x_poison, y_poison, batch_size=128, nb_epochs=1, verbose=1)
-        index_source_test = np.where(y_test_np.argmax(axis=1) == class_source)[0]
-        x_test_trigger = x_test_np[index_source_test]
-        x_test_trigger = add_trigger_patch(x_test_trigger, trigger_path, patch_size, input_channel, "random")
-        result_poisoned_test = model_art.predict(x_test_trigger)
+        model_poisoned.fit(x_poison, y_poison, batch_size=128, nb_epochs=150, verbose=1)
+        # model_posioned.fit(x_poison, y_poison, batch_size=128, nb_epochs=1, verbose=1)
+        predictions = model_poisoned.predict(x_test_np)
+        accuracy_poisioned = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test_np, axis=1)) / len(y_test_np)
+        print("Accuracy on poisioned test examples: {}%".format(accuracy_poisioned * 100))
 
-        success_test = (np.argmax(result_poisoned_test, axis=1) == class_target).sum() / result_poisoned_test.shape[0]
-        print("Test Success Rate:", success_test)
+        index_source_train = np.where(y_train_np.argmax(axis=1) == class_source)[0]
+        x_train_trigger = x_train_orig_np[index_source_train]
+        x_train_trigger = add_trigger_patch(x_train_trigger, trigger_path, patch_size, input_channel, "random")
+        result_poisoned_train = model_poisoned.predict(x_train_trigger)
 
+        success_test = (np.argmax(result_poisoned_train, axis=1) == class_target).sum() / result_poisoned_train.shape[0]
+        print(f'Test Success Rate(Probability of poisioned sample recognized as a target category{class_target} is {success_test}):')
 
 def explain(nb_classes, num_channels, model):
     """Generate model explanations using LIME."""
-    device_type = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device_type = '"cuda:0' if torch.cuda.is_available() else 'cpu'
 
     from skimage.segmentation import felzenszwalb  # Ensure felzenszwalb is imported
 
@@ -282,7 +284,8 @@ if __name__ == '__main__':
     input_shape = tuple(x_train.shape[1:])
 
     # Load model
-    model = Net()  # Ensure that the Net class is defined in your model.py
+    #model = Net()  # Ensure that the Net class is defined in your model.py
+    model = torchvision.models.ResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2], num_classes=10)
     model.load_state_dict(torch.load(load_path))
     model.eval()
 
