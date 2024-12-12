@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import Dataset
 #import torch.optim as optim
 import numpy as np
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
@@ -19,15 +20,20 @@ from torch import Tensor
 import matplotlib.pyplot as plt
 import torchvision
 from torchvision import models, transforms
+from transformers import BertTokenizer, BertModel
 
 #from art.attacks.evasion import FastGradientMethod
 from art.estimators.classification import PyTorchClassifier
-from art.utils import load_dataset
+from datasets import load_dataset
 from art import metrics
 from art.estimators.classification import PyTorchClassifier
 from art.metrics.privacy.membership_leakage import SHAPr
 from art.attacks.poisoning.sleeper_agent_attack import SleeperAgentAttack
 from art.utils import to_categorical
+
+import hnswlib
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import laplacian
 
 from lime import lime_image
 # from skimage.segmentation import mark_boundaries
@@ -69,6 +75,87 @@ def load_cifar10_dataset():
 
     return x_train, y_train, x_test, y_test, min_value, max_value
 
+def load_imdb_dataset():
+    """
+    Load the IMDb dataset for sentiment analysis.
+
+    Returns:
+        x_train (list): List of text reviews from the training set.
+        y_train (list): List of sentiment labels (0 or 1) from the training set.
+        x_test (list): List of text reviews from the test set.
+        y_test (list): List of sentiment labels (0 or 1) from the test set.
+        min_value (None): Placeholder for consistency with image datasets.
+        max_value (None): Placeholder for consistency with image datasets.
+    """
+    # Load the IMDb dataset
+    dataset = load_dataset('imdb')
+    train_data = dataset['train']
+    test_data = dataset['test']
+
+    # Extract text reviews and labels
+    x_train = train_data['text']   # List of strings (reviews)
+    y_train = train_data['label']  # List of integers (0 or 1)
+
+    x_test = test_data['text']
+    y_test = test_data['label']
+
+    # Since text data has no numerical min/max values, return None
+    min_value = None
+    max_value = None
+
+    return x_train, y_train, x_test, y_test, min_value, max_value
+
+class TextDataset(Dataset):
+    def __init__(self, texts, labels=None, tokenizer=None, max_length=128):
+        self.texts = texts
+        self.labels = labels
+        self.max_length = max_length
+        if tokenizer is None:
+            self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        else:
+            self.tokenizer = tokenizer
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        text = str(self.texts[idx])
+        encoding = self.tokenizer.encode_plus(
+            text,
+            add_special_tokens=True,
+            max_length=self.max_length,
+            return_token_type_ids=False,
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True,
+            return_tensors='pt',
+        )
+        input_ids = encoding['input_ids'].squeeze()       # shape: [max_length]
+        attention_mask = encoding['attention_mask'].squeeze()  # shape: [max_length]
+
+        if self.labels is not None:
+            label = self.labels[idx]
+            return input_ids, attention_mask, torch.tensor(label, dtype=torch.long)
+        else:
+            return input_ids, attention_mask
+
+class BertClassifier(nn.Module):
+    """
+    Wrap BertForSequenceClassification for ART's PyTorchClassifier.
+    The forward input x should contain concatenated input_ids and attention_mask.
+    """
+    def __init__(self, model, max_length=128):
+        super(BertClassifier, self).__init__()
+        self.model = model
+        self.max_length = max_length
+
+    def forward(self, x):
+        # x shape: [batch_size, max_length * 2]
+        input_ids = x[:, :self.max_length].long()
+        attention_mask = x[:, self.max_length:].long()
+        outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        logits = outputs.logits
+        return logits
 # For task poisoning
 def select_trigger_train(x_train, y_train, K, class_source, class_target):
     x_train_ = np.copy(x_train)
@@ -114,6 +201,49 @@ def add_trigger_patch(x_set, trigger_path, patch_size, input_channel, patch_type
 
 def to_one_hot(y, nb_classes):
     return np.eye(nb_classes)[y] 
+
+def hnsw(features, k=10, ef=100, M=48):
+    """使用 HNSW 构建最近邻图"""
+    num_samples, dim = features.shape
+    p = hnswlib.Index(space='l2', dim=dim)
+    p.init_index(max_elements=num_samples, ef_construction=ef, M=M)
+    labels_index = np.arange(num_samples)
+    p.add_items(features, labels_index)
+    p.set_ef(ef)
+    neighs, weight = p.knn_query(features, k + 1)
+    return neighs, weight
+
+def construct_adj(neighs, weight):
+    """构建邻接矩阵"""
+    dim = neighs.shape[0]
+    k = neighs.shape[1] - 1
+    idx0 = np.arange(dim)
+    row = np.repeat(idx0.reshape(-1,1), k, axis=1).reshape(-1,)
+    col = neighs[:, 1:].reshape(-1,)
+    all_row = np.concatenate((row, col), axis=0)
+    all_col = np.concatenate((col, row), axis=0)
+    data = np.ones(all_row.shape[0])
+    adj = csr_matrix((data, (all_row, all_col)), shape=(dim, dim))
+    return adj
+
+def spade_score(input_features, output_features, k=10):
+    """计算 SPADE 分数"""
+    # 构建输入和输出的 k-NN 图
+    neighs_in, dist_in = hnsw(input_features, k)
+    adj_in = construct_adj(neighs_in, dist_in)
+    neighs_out, dist_out = hnsw(output_features, k)
+    adj_out = construct_adj(neighs_out, dist_out)
+
+    # 拉普拉斯矩阵
+    L_in = laplacian(adj_in, normed=True)
+    L_out = laplacian(adj_out, normed=True)
+
+    # 特征值分解
+    eigvals_in, eigvecs_in = np.linalg.eig(L_in.toarray())
+    eigvals_out, eigvecs_out = np.linalg.eig(L_out.toarray())
+
+    spade_score_value = max(eigvals_out) / max(eigvals_in)
+    return spade_score_value
 
 if __name__ == "__main__":
     pass

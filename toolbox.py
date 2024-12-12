@@ -13,6 +13,7 @@ from skimage.transform import resize
 from skimage.segmentation import felzenszwalb
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+from transformers import BertTokenizer, BertModel, BertForSequenceClassification
 
 from art.attacks.poisoning import SleeperAgentAttack
 from art.estimators.classification import PyTorchClassifier
@@ -23,8 +24,7 @@ from lime import lime_image
 
 from model import Net  # Ensure that the Net class is defined in your model.py
 from mydata import load_mydata  # Ensure you have a file named mydata.py containing the load_mydata function
-from utils import load_mnist_dataset, load_cifar10_dataset, select_trigger_train, save_poisoned_data, add_trigger_patch, to_one_hot
-
+from utils import *
 
 def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
     """Calculate untargeted CLEVER scores."""
@@ -49,21 +49,66 @@ def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
     print('-----------FINAL RESULT-----------')
     print(f"Untargeted CLEVER score: {clever_untargeted_avg}")
 
-
-def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, device_type='gpu'):
+def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, NLP, device_type='gpu'):
     """Calculate SHAPr leakage."""
-    device_type = '"cuda:0' if torch.cuda.is_available() else 'cpu'
-    input_shape = x_train.shape[1:]
-    classifier = PyTorchClassifier(
-        model=model,
-        input_shape=input_shape,
-        nb_classes=nb_classes,
-        loss=nn.CrossEntropyLoss(),
-        optimizer=optim.SGD(model.parameters(), lr=0.1),
-        device_type=device_type,
-    )
+    device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    max_length = 128
 
-    SHAPr_leakage = SHAPr(classifier, x_train.numpy(), y_train.numpy(), x_test.numpy(), y_test.numpy(), enable_logging=True)
+    if NLP:
+        # 使用TextDataset和DataLoader将文本数据转化为input_ids+attention_mask张量
+        train_set = TextDataset(x_train, y_train, max_length=max_length)
+        test_set = TextDataset(x_test, y_test, max_length=max_length)
+        train_loader = DataLoader(train_set, batch_size=32, shuffle=False)
+        test_loader = DataLoader(test_set, batch_size=32, shuffle=False)
+
+        def get_features_and_labels(data_loader):
+            inputs_list = []
+            labels_list = []
+            for batch in data_loader:
+                input_ids, attention_mask, labels = batch
+                combined = torch.cat((input_ids, attention_mask), dim=1)  # [batch_size, max_length * 2]
+                inputs_list.append(combined)
+                labels_list.append(labels)
+            inputs = torch.cat(inputs_list, dim=0)  # [N, max_length * 2]
+            labels = torch.cat(labels_list, dim=0)  # [N]
+            return inputs, labels
+
+        print("Preparing IMDb data for SHAPr (NLP)...")
+        x_train_tensor, y_train_tensor = get_features_and_labels(train_loader)
+        x_test_tensor, y_test_tensor = get_features_and_labels(test_loader)
+
+        # 将张量转为Numpy数组
+        x_train_np = x_train_tensor.cpu().numpy()
+        y_train_np = y_train_tensor.cpu().numpy()
+        x_test_np = x_test_tensor.cpu().numpy()
+        y_test_np = y_test_tensor.cpu().numpy()
+
+        # 使用BertClassifier封装模型
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=2e-5)
+        classifier = PyTorchClassifier(
+            model=BertClassifier(model, max_length),
+            loss=criterion,
+            optimizer=optimizer,
+            input_shape=(max_length * 2,),
+            nb_classes=nb_classes,
+            device_type='gpu' if torch.cuda.is_available() else 'cpu',
+        )
+
+        SHAPr_leakage = SHAPr(classifier, x_train_np, y_train_np, x_test_np, y_test_np, enable_logging=True)
+
+    else:
+        input_shape = x_train.shape[1:]
+        classifier = PyTorchClassifier(
+            model=model,
+            input_shape=input_shape,
+            nb_classes=nb_classes,
+            loss=nn.CrossEntropyLoss(),
+            optimizer=optim.SGD(model.parameters(), lr=0.1),
+            device_type=device_type,
+        )
+        SHAPr_leakage = SHAPr(classifier, x_train.numpy(), y_train.numpy(), x_test.numpy(), y_test.numpy(), enable_logging=True)
+
     print("Average SHAPr leakage: ", np.mean(SHAPr_leakage))
     
 def poison(nb_classes, test, trigger_path, patch_size, x_train, x_test, y_train, y_test, min_, max_, model):
@@ -245,6 +290,93 @@ def explain(nb_classes, num_channels, model):
         plt.imsave(output_filename, img_boundary)
         print(f'Saved image: {output_filename}')
 
+def calculate_spade(nb_classes, model, x_test, NLP):
+    """计算 SPADE 分数的函数。
+    假设在此处选择一部分数据来提取输入输出特征。
+    """
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    model.to(device)
+    model.eval()
+
+    # 转换为张量
+    #x_test = x_test.to(device)
+
+    if NLP:
+        text_dataset = TextDataset(x_test[:100])
+        dataloader = DataLoader(text_dataset, batch_size=32, shuffle=False)
+
+        input_features = []
+        output_features = []
+
+        print("提取NLP输入和输出特征...")
+        with torch.no_grad():
+            for input_ids, attention_mask in dataloader:
+                input_ids = input_ids.to(device)
+                attention_mask = attention_mask.to(device)
+
+                # 输入特征：词嵌入平均值
+                embeddings = model.embeddings(input_ids)
+                avg_embeddings = embeddings.mean(dim=1).cpu().numpy()
+                input_features.append(avg_embeddings)
+
+                # 输出特征：最后一层隐藏状态平均值
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                last_hidden_state = outputs.last_hidden_state
+                avg_output = last_hidden_state.mean(dim=1).cpu().numpy()
+                output_features.append(avg_output)
+
+        input_features = np.concatenate(input_features, axis=0)
+        output_features = np.concatenate(output_features, axis=0)
+        score = spade_score(input_features, output_features)
+
+    else:
+        with torch.no_grad():
+            # 输入特征为原始像素展平
+            input_features = x_test.view(x_test.size(0), -1).cpu().numpy()
+            
+            # 输出特征为模型最后一层的输出
+            outputs = model(x_test).cpu().numpy()
+        score = spade_score(input_features, outputs)
+
+    print(f"SPADE Score: {score}")
+    return score
+
+def calculate_spade_single(nb_classes, model, x_test, sample_index=0):
+    """
+    对单个数据样本评估SPADE。
+    为了计算SPADE，需要多个数据点构建k-NN图。
+    因此，我们选择该单数据点以及测试集中的一部分数据（如前100或500张）。
+    """
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    model.to(device)
+    model.eval()
+
+    # 确保sample_index在范围内
+    if sample_index < 0 or sample_index >= x_test.shape[0]:
+        raise ValueError("sample_index is out of range.")
+
+    # 选取子集数据，如前500张中包括该sample_index对应的样本
+    max_samples = min(500, x_test.shape[0])
+    # 如果sample_index在max_samples之外，就将其包含进来，把它和前(max_samples-1)张拼起来
+    if sample_index >= max_samples:
+        # 用前(max_samples - 1)张加上sample_index这张样本构成数据集
+        indices = list(range(max_samples - 1))
+        indices.append(sample_index)
+    else:
+        # 直接用前max_samples张即可
+        indices = list(range(max_samples))
+
+    # 从x_test中选取这些样本
+    x_sub = x_test[indices]
+    x_sub = x_sub.to(device)
+
+    with torch.no_grad():
+        input_features = x_sub.view(x_sub.size(0), -1).cpu().numpy()
+        outputs = model(x_sub).cpu().numpy()
+
+    score = spade_score(input_features, outputs)
+    print(f"Single Sample SPADE Score (focus on sample {sample_index}): {score}")
+    return score
 
 if __name__ == '__main__':
     # Read YAML configuration file
@@ -266,6 +398,11 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--patch_size', type=int, help='Patch size for poison data, only for data poisoning task')
     parser.add_argument('-test', '--check_attack_effect', action='store_true', help='Check attack effect, only for data poisoning task')
     parser.add_argument('-ch', '--num_channels', type=int, help='Number of channels in uploaded images, only for model explanation task')
+    parser.add_argument('--sample_index', type=int, default=0, help='Sample index for single data SPADE evaluation in robustness_poisonability task')
+    parser.add_argument('--NLP', action='store_true', help='Use NLP model for SPADE calculation')
+    parser.add_argument('--load_model', action='store_true', help='Use pre-trained')
+
+
 
     args = parser.parse_args()
 
@@ -275,25 +412,35 @@ if __name__ == '__main__':
     elif args.dataset == 'cifar10':
         print('Loading CIFAR-10 dataset...')
         x_train, y_train, x_test, y_test, min_value, max_value = load_cifar10_dataset()
+    elif args.dataset == 'imdb':
+        x_train, y_train, x_test, y_test, min_value, max_value = load_imdb_dataset()    
     elif args.dataset == 'mydata':
         x_train, y_train, x_test, y_test, min_value, max_value = load_mydata()
     else:
         raise ValueError('Please specify a correct dataset: mnist, cifar10, or mydata.')
 
     # Define input shape
-    input_shape = tuple(x_train.shape[1:])
+    #input_shape = tuple(x_train.shape[1:])
 
     # Load model
-    #model = Net()  # Ensure that the Net class is defined in your model.py
-    model = torchvision.models.ResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2], num_classes=10)
-    model.load_state_dict(torch.load(load_path))
+    if args.NLP:
+        #model = BertModel.from_pretrained('bert-base-uncased') #for decoding->spade
+        model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2) #for classification->privacy
+    elif args.load_model:
+        model = Net()
+        model.load_state_dict(torch.load(load_path))
+    else:
+        model = torchvision.models.ResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2], num_classes=10)
+        model.load_state_dict(torch.load(load_path))
     model.eval()
 
     # Call the corresponding function based on the provided task
-    if args.task_need == 'robustness':
-        calculate_clever_scores(args.nb_classes, model, x_test)
+    if args.task_need == 'robustness_clever':
+        clever_score = calculate_clever_scores(args.nb_classes, model, x_test)
+    elif args.task_need == 'robustness_spade':
+        spade_score_val = calculate_spade(args.nb_classes, model, x_test, NLP=args.NLP)
     elif args.task_need == 'privacy':
-        calculate_SHAPr(args.nb_classes, model, x_train, y_train, x_test, y_test)
+        calculate_SHAPr(args.nb_classes, model, x_train, y_train, x_test, y_test, NLP=args.NLP)
     elif args.task_need == 'poison':
         if args.patch_size is None:
             raise ValueError('Please provide --patch_size for data poisoning task.')
@@ -302,5 +449,8 @@ if __name__ == '__main__':
         if args.num_channels is None:
             raise ValueError('Please provide --num_channels for model explanation task.')
         explain(args.nb_classes, args.num_channels, model)
+    elif args.task_need == 'robustness_poisonability':
+        # 通过选择特定的样本以及小规模数据集计算SPADE分数，体现该数据点的易中毒性
+        calculate_spade_single(args.nb_classes, model, x_test, sample_index=args.sample_index)
     else:
         print('Please specify a correct task: robustness, privacy, poison, or explain.')
