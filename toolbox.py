@@ -55,7 +55,7 @@ def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, NLP, de
     max_length = 128
 
     if NLP:
-        # 使用TextDataset和DataLoader将文本数据转化为input_ids+attention_mask张量
+        # Using TextDataset and DataLoader to transform text data into input_ids+attention_mask tensor
         train_set = TextDataset(x_train, y_train, max_length=max_length)
         test_set = TextDataset(x_test, y_test, max_length=max_length)
         train_loader = DataLoader(train_set, batch_size=32, shuffle=False)
@@ -77,13 +77,13 @@ def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, NLP, de
         x_train_tensor, y_train_tensor = get_features_and_labels(train_loader)
         x_test_tensor, y_test_tensor = get_features_and_labels(test_loader)
 
-        # 将张量转为Numpy数组
+        # Tensor to Numpy array
         x_train_np = x_train_tensor.cpu().numpy()
         y_train_np = y_train_tensor.cpu().numpy()
         x_test_np = x_test_tensor.cpu().numpy()
         y_test_np = y_test_tensor.cpu().numpy()
 
-        # 使用BertClassifier封装模型
+        # Encapsulating Models with BertClassifier
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=2e-5)
         classifier = PyTorchClassifier(
@@ -343,30 +343,28 @@ def calculate_spade(nb_classes, model, x_test, NLP):
 
 def calculate_spade_single(nb_classes, model, x_test, sample_index=0):
     """
-    对单个数据样本评估SPADE。
-    为了计算SPADE，需要多个数据点构建k-NN图。
-    因此，我们选择该单数据点以及测试集中的一部分数据（如前100或500张）。
+    Evaluate SPADE score for a single data sample.
+    To compute SPADE, multiple data points are needed to build a k-NN graph.
+    Thus, we select this single data point along with a subset of the test set (e.g., first 100 or 500 samples).
     """
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model.to(device)
     model.eval()
 
-    # 确保sample_index在范围内
+    # Ensure sample_index is in range
     if sample_index < 0 or sample_index >= x_test.shape[0]:
         raise ValueError("sample_index is out of range.")
 
-    # 选取子集数据，如前500张中包括该sample_index对应的样本
+    # Select a subset of data, e.g., first 500 samples including the specified sample_index
     max_samples = min(500, x_test.shape[0])
-    # 如果sample_index在max_samples之外，就将其包含进来，把它和前(max_samples-1)张拼起来
     if sample_index >= max_samples:
-        # 用前(max_samples - 1)张加上sample_index这张样本构成数据集
+        # Use the first (max_samples - 1) plus this sample_index
         indices = list(range(max_samples - 1))
         indices.append(sample_index)
     else:
-        # 直接用前max_samples张即可
+        # Directly use the first max_samples
         indices = list(range(max_samples))
 
-    # 从x_test中选取这些样本
     x_sub = x_test[indices]
     x_sub = x_sub.to(device)
 
@@ -450,7 +448,7 @@ if __name__ == '__main__':
             raise ValueError('Please provide --num_channels for model explanation task.')
         explain(args.nb_classes, args.num_channels, model)
     elif args.task_need == 'robustness_poisonability':
-        # 通过选择特定的样本以及小规模数据集计算SPADE分数，体现该数据点的易中毒性
+        # SPADE scores were calculated by selecting a specific sample as well as a small data set, reflecting the easy neutrality of that data point
         calculate_spade_single(args.nb_classes, model, x_test, sample_index=args.sample_index)
     else:
         print('Please specify a correct task: robustness, privacy, poison, or explain.')

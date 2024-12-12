@@ -53,8 +53,8 @@ RUN python3 -m pip install --no-cache-dir \
     argparse \
     ruamel.yaml \
     hnswlib \
-    transformers \
-    datasets 
+    transformers = 4.30.2\
+    datasets  =1.8.0 
 
 # Copy your project files into the container
 COPY . .
