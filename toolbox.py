@@ -21,10 +21,11 @@ from art.metrics import clever_u
 from art.metrics.privacy.membership_leakage import SHAPr
 from art.utils import to_categorical
 from lime import lime_image
+from GEEX import geex
 
 from model import Net  # Ensure that the Net class is defined in your model.py
 from mydata import load_mydata  # Ensure you have a file named mydata.py containing the load_mydata function
-from utils import *
+from utils_toolbox import *
 
 def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
     """Calculate untargeted CLEVER scores."""
@@ -290,6 +291,49 @@ def explain(nb_classes, num_channels, model):
         plt.imsave(output_filename, img_boundary)
         print(f'Saved image: {output_filename}')
 
+def explain_geex(nb_classes, num_channels, model):
+    """Generate model explanations using GEEX, and save results to disk."""
+    device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+
+    # Define transformations
+    IMG_SIZE = (1, 28, 28)
+    PIX_MEAN, PIX_STD = (0.1307, ), (0.3081, )
+
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.Grayscale(num_output_channels=1),
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize(PIX_MEAN, PIX_STD)]
+    )
+
+
+    dataset = datasets.ImageFolder(root='images_upload', transform=transform)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+
+    input_shape = (num_channels, dataset[0][0].shape[1], dataset[0][0].shape[2])
+
+    # Initialize GEEX explainer
+    num_masks, sigma = 5000, 1.0
+    expl_ge = geex.GEEX(num_masks, sigma, input_shape)
+
+    output_dir = 'explained_images_geex'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Iterate over uploaded images
+    for i, (images, labels) in enumerate(dataloader):
+        images = images.numpy()  # shape: (1, C, H, W)
+        images_tensor = torch.tensor(images).to(device_type)
+
+        # Assuming expl_ge.explain(model, images_tensor) returns a relevance map list
+        # If the method or return type differ, adjust accordingly
+        rel_map = expl_ge.explain(model, images_tensor)[0]
+
+        # Save relevance map as a heatmap
+        cmap = 'jet'
+        output_filename_geex = f'{output_dir}/explanation_geex_{i}.png'
+        plt.imsave(output_filename_geex, rel_map, cmap=cmap)
+        print(f'Saved GEEX explanation: {output_filename_geex}')
+
 def calculate_spade(nb_classes, model, x_test, NLP):
     """计算 SPADE 分数的函数。
     假设在此处选择一部分数据来提取输入输出特征。
@@ -447,6 +491,10 @@ if __name__ == '__main__':
         if args.num_channels is None:
             raise ValueError('Please provide --num_channels for model explanation task.')
         explain(args.nb_classes, args.num_channels, model)
+    elif args.task_need == 'explain_geex':
+        if args.num_channels is None:
+            raise ValueError('Please provide --num_channels for model explanation task.')
+        explain_geex(args.nb_classes, args.num_channels, model)
     elif args.task_need == 'robustness_poisonability':
         # SPADE scores were calculated by selecting a specific sample as well as a small data set, reflecting the easy neutrality of that data point
         calculate_spade_single(args.nb_classes, model, x_test, sample_index=args.sample_index)
