@@ -79,7 +79,7 @@ Alternatively, you can use Docker to set up and run the toolbox. To build and ru
 
 ```bash
 docker build -t adversarial-attack-toolbox .
-bash run_docker.sh
+bash run_docker.sh # create docker container
 ```
 ## **Usage**
 If you are using Docker to set up the environment, run commands directly within the container's command line. 
@@ -177,7 +177,7 @@ $ python toolbox.py -t explain_geex -c <nb_classes> -ch <num_channels>
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <num_channels>: Specify with the number of channels in your uploaded images.
 ```
-
+## **Example**
 ### **1. Evaluate CLEVER Scores for Model Robustness:**
 ```bash
 $ python3 toolbox.py -d cifar10 -t robustness_clever -c 10 -m ResNet
