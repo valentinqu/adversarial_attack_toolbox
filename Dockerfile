@@ -33,8 +33,7 @@ WORKDIR /app
 RUN python3 -m pip install --no-cache-dir torch==1.13.1+cu117 torchvision==0.14.1+cu117 \
     --extra-index-url https://download.pytorch.org/whl/cu117
 
-# Install LIME and other dependencies
-# The presence of build-essential and cmake should allow hnswlib to compile successfully
+# Install LIME, Transformers, and other dependencies
 RUN python3 -m pip install --no-cache-dir \
     lime==0.2.0.1 \
     numpy \
@@ -53,8 +52,8 @@ RUN python3 -m pip install --no-cache-dir \
     argparse \
     ruamel.yaml \
     hnswlib \
-    transformers = 4.30.2\
-    datasets  =1.8.0 
+    transformers \
+    datasets==1.8.0
 
-# Copy your project files into the container
+# Copy project files into the container
 COPY . .

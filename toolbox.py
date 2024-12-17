@@ -25,7 +25,7 @@ from GEEX import geex
 
 from model import Net  # Ensure that the Net class is defined in your model.py
 from mydata import load_mydata  # Ensure you have a file named mydata.py containing the load_mydata function
-from utils_toolbox import *
+from utils import *
 
 def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
     """Calculate untargeted CLEVER scores."""
@@ -335,14 +335,14 @@ def explain_geex(nb_classes, num_channels, model):
         print(f'Saved GEEX explanation: {output_filename_geex}')
 
 def calculate_spade(nb_classes, model, x_test, NLP):
-    """计算 SPADE 分数的函数。
-    假设在此处选择一部分数据来提取输入输出特征。
+    """Function to calculate the SPADE score.
+    Assumes selecting a portion of the data to extract input-output features.
     """
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model.to(device)
     model.eval()
 
-    # 转换为张量
+    # Convert to tensor if needed
     #x_test = x_test.to(device)
 
     if NLP:
@@ -352,18 +352,18 @@ def calculate_spade(nb_classes, model, x_test, NLP):
         input_features = []
         output_features = []
 
-        print("提取NLP输入和输出特征...")
+        print("Extracting NLP input and output features...")
         with torch.no_grad():
             for input_ids, attention_mask in dataloader:
                 input_ids = input_ids.to(device)
                 attention_mask = attention_mask.to(device)
 
-                # 输入特征：词嵌入平均值
+                # Input features: Average word embeddings
                 embeddings = model.embeddings(input_ids)
                 avg_embeddings = embeddings.mean(dim=1).cpu().numpy()
                 input_features.append(avg_embeddings)
 
-                # 输出特征：最后一层隐藏状态平均值
+                # Output features: Average of last hidden state
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
                 last_hidden_state = outputs.last_hidden_state
                 avg_output = last_hidden_state.mean(dim=1).cpu().numpy()
@@ -375,10 +375,10 @@ def calculate_spade(nb_classes, model, x_test, NLP):
 
     else:
         with torch.no_grad():
-            # 输入特征为原始像素展平
+            # Input features are flattened original pixels
             input_features = x_test.view(x_test.size(0), -1).cpu().numpy()
             
-            # 输出特征为模型最后一层的输出
+            # Output features are the model's final layer output
             outputs = model(x_test).cpu().numpy()
         score = spade_score(input_features, outputs)
 
@@ -434,7 +434,8 @@ if __name__ == '__main__':
         description='Calculate CLEVER scores',
     )
 
-    parser.add_argument('-d', '--dataset', required=True, help='Dataset to import (mnist, cifar10, mydata)')
+    parser.add_argument('-d', '--dataset', required=False, help='Dataset to import (mnist, cifar10, mydata)')
+    parser.add_argument('-m', '--model', required=True, help='Model to import (BertModel, BertForSequenceClassification, ResNet, mymodel)')
     parser.add_argument('-t', '--task_need', required=True, type=str, help='Task to perform: robustness, privacy, poison, or explain')
     parser.add_argument('-c', '--nb_classes', required=True, type=int, help='Number of classes')
     parser.add_argument('-s', '--patch_size', type=int, help='Patch size for poison data, only for data poisoning task')
@@ -442,7 +443,7 @@ if __name__ == '__main__':
     parser.add_argument('-ch', '--num_channels', type=int, help='Number of channels in uploaded images, only for model explanation task')
     parser.add_argument('--sample_index', type=int, default=0, help='Sample index for single data SPADE evaluation in robustness_poisonability task')
     parser.add_argument('--NLP', action='store_true', help='Use NLP model for SPADE calculation')
-    parser.add_argument('--load_model', action='store_true', help='Use pre-trained')
+
 
 
 
@@ -465,14 +466,14 @@ if __name__ == '__main__':
     #input_shape = tuple(x_train.shape[1:])
 
     # Load model
-    if args.NLP:
-        #model = BertModel.from_pretrained('bert-base-uncased') #for decoding->spade
+    if args.model == 'BertModel':
+        model = BertModel.from_pretrained('bert-base-uncased') #for decoding->spade
+    elif args.model == 'BertForSequenceClassification':
         model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2) #for classification->privacy
-    elif args.load_model:
+    elif args.model == 'ResNet':
+        model = torchvision.models.resnet18(pretrained=True)
+    elif args.model == 'mymodel':
         model = Net()
-        model.load_state_dict(torch.load(load_path))
-    else:
-        model = torchvision.models.ResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2], num_classes=10)
         model.load_state_dict(torch.load(load_path))
     model.eval()
 
