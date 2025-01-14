@@ -47,11 +47,7 @@ Ensure you have Python 3.7 installed, along with the following packages:
 
 3. **Store your `.pth` files** in the `models/` directory (e.g., `models/my_model.pth`).
 
-4. **For Model explanations**: Place images for processing into the `images_upload/class_0/` directory.
-
-5. **For data poisoning**: Place the trigger image into the `trigger/` directory.
-
-6. **Custom Dataset**:
+4. **Custom Dataset**:
    - **CSV Label File (`labels.csv`)**: This file should contain two columns - the first column is the image file name, and the second column is the corresponding label. Example:
    
      ```csv
@@ -60,6 +56,33 @@ Ensure you have Python 3.7 installed, along with the following packages:
      image3.png,0
      ```
    - **Image folder**: Ensure that the image folder contains all image files with filenames matching the names in the CSV.
+
+5. **Skip 1-4,using Hugging Face Models and Datasets**:
+
+    specify the model name in your configuration or command-line arguments.
+
+    ```bash
+    $ python toolbox.py --hf_model <hf_model_name>
+    - <hf_model_name>: Name of the Hugging Face model (e.g., "bert-base-uncased").
+    ```
+    specify the dataset name, text field, and label field in the command line.
+
+    ```
+    $ python toolbox.py --hf_dataset <hf_dataset_name> --hf_text_field <text> --hf_label_field <label>
+    
+    -- <hf_dataset_name>: Name of the Hugging Face dataset (e.g., "imdb").
+    -- <text>: Field name for text data in the Hugging Face dataset (default: "text").
+    -- <label>: Field name for labels in the Hugging Face dataset (default: "label").
+
+6. **For Model explanations**: Place images for processing into the `images_upload/class_0/` directory.
+
+7. **For data poisoning**: Place the trigger image into the `trigger/` directory, add trigger image path to `config.yaml` file
+    ```yaml
+    trigger_path: 'path/to/trigger/image.png'
+    ```
+    - `trigger_path`: Path to the trigger image used for data poisoning.
+
+
 
 ## **Environment Installation Options**
 

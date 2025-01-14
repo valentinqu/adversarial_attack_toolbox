@@ -105,6 +105,52 @@ def load_imdb_dataset():
 
     return x_train, y_train, x_test, y_test, min_value, max_value
 
+def load_hf_dataset(dataset_name, text_field='text', label_field='label'):
+    """
+    Load a dataset from the Hugging Face datasets library.
+
+    Args:
+        dataset_name (str): Name of the dataset to load.
+        text_field (str): Text field name, default is 'text'.
+        label_field (str): Label field name, default is 'label'.
+
+    returns:
+        tuple: x_train, y_train, x_test, y_test, min_value, max_value
+    """
+    try:
+        
+        dataset = load_dataset(dataset_name)
+
+        # check if text and label fields exist in the dataset
+        if text_field not in dataset['train'].features:
+            raise ValueError(f"Text field '{text_field}' not found in dataset.")
+        if label_field not in dataset['train'].features:
+            raise ValueError(f"Label field '{label_field}' not found in dataset.")
+
+       
+        train_data = dataset['train']
+        test_data = dataset['test']
+
+        x_train = train_data[text_field]  
+        y_train = train_data[label_field]  
+
+        x_test = test_data[text_field]
+        y_test = test_data[label_field]
+
+        # Since text data has no numerical min/max values, return None  
+        min_value = None
+        max_value = None
+
+        print(f"Dataset '{dataset_name}' loaded successfully.")
+        print(f"Train samples: {len(x_train)}, Test samples: {len(x_test)}")
+
+        return x_train, y_train, x_test, y_test, min_value, max_value
+
+    except Exception as e:
+        print(f"Error loading dataset '{dataset_name}': {str(e)}")
+        return None, None, None, None, None, None
+    
+
 class TextDataset(Dataset):
     def __init__(self, texts, labels=None, tokenizer=None, max_length=128):
         self.texts = texts
