@@ -15,6 +15,17 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from transformers import BertTokenizer, BertModel, BertForSequenceClassification,AutoModel
 
+from transformers import (
+    AutoModel,
+    AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
+    AutoModelForQuestionAnswering,
+    AutoModelForCausalLM,
+    AutoModelForMaskedLM,
+    AutoModelForSeq2SeqLM,
+    AutoConfig,
+)
+
 
 from art.attacks.poisoning import SleeperAgentAttack
 from art.estimators.classification import PyTorchClassifier
@@ -56,6 +67,8 @@ def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, NLP, de
     device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     max_length = 128
 
+    x_train = x_train[:100]  # Use the first 100 samples for training, delete this range if you want to use all samples
+    y_train = y_train[:100]
     if NLP:
         # Using TextDataset and DataLoader to transform text data into input_ids+attention_mask tensor
         train_set = TextDataset(x_train, y_train, max_length=max_length)
@@ -343,11 +356,9 @@ def calculate_spade(nb_classes, model, x_test, NLP):
     model.to(device)
     model.eval()
 
-    # Convert to tensor if needed
-    #x_test = x_test.to(device)
-
     if NLP:
-        text_dataset = TextDataset(x_test[:100])
+        text_dataset = TextDataset(x_test[:100]) # Use the first 100 samples for test, delete this range if you want to use all samples
+        #text_dataset = TextDataset(x_test)
         dataloader = DataLoader(text_dataset, batch_size=32, shuffle=False)
 
         input_features = []
@@ -376,6 +387,8 @@ def calculate_spade(nb_classes, model, x_test, NLP):
 
     else:
         with torch.no_grad():
+            x_test = x_test[:100].to(device) # Use the first 100 samples for test, delete this range if you want to use all samples
+            #x_test = x_test.to(device)
             # Input features are flattened original pixels
             input_features = x_test.view(x_test.size(0), -1).cpu().numpy()
             
@@ -428,6 +441,7 @@ if __name__ == '__main__':
         config = yaml_loader.load(file)
     load_path = config['model_path']
     trigger_path = config['trigger_path']
+    hf_model_path = config['hf_model_path']
 
     # Define ArgumentParser instance
     parser = argparse.ArgumentParser(
@@ -435,78 +449,99 @@ if __name__ == '__main__':
         description='Calculate CLEVER scores',
     )
 
-    parser.add_argument('-d', '--dataset', required=False, help='Dataset to import (mnist, cifar10, mydata)')
-    parser.add_argument('-m', '--model', required=False, help='Model to import (BertModel, BertForSequenceClassification, ResNet, mymodel)')
+    parser.add_argument('-d', '--dataset', required=True, help='Dataset to import (mnist, cifar10, mydata, hf_dataset)')
+    parser.add_argument('-m', '--model', required=True, help='Model to import (BertModel, BertForSequenceClassification, ResNet, mymodel, hf_model)')
+
     parser.add_argument('-t', '--task_need', required=True, type=str, help='Task to perform: robustness, privacy, poison, or explain')
+
     parser.add_argument('-c', '--nb_classes', required=True, type=int, help='Number of classes')
     parser.add_argument('-s', '--patch_size', type=int, help='Patch size for poison data, only for data poisoning task')
     parser.add_argument('-test', '--check_attack_effect', action='store_true', help='Check attack effect, only for data poisoning task')
     parser.add_argument('-ch', '--num_channels', type=int, help='Number of channels in uploaded images, only for model explanation task')
     parser.add_argument('--sample_index', type=int, default=0, help='Sample index for single data SPADE evaluation in robustness_poisonability task')
     parser.add_argument('--NLP', action='store_true', help='Use NLP model for SPADE calculation')
-    parser.add_argument('--hf_model', type=str, help='Hugging Face model name or path')
-    parser.add_argument('--hf_dataset', type=str, help='Hugging Face dataset name')
-    if parser.add_argument('--hf_dataset') is not None:
-        parser.add_argument('--hf_text_field', type=str, default='text', help='Text field name in the dataset (default: text)')
-        parser.add_argument('--hf_label_field', type=str, default='label', help='Label field name in the dataset (default: label)')
-
-
-
-
+   
+    
+    parser.add_argument('--hf_text_field', type=str, default='text', help='Text field name in the dataset (default: text)')
+    parser.add_argument('--hf_label_field', type=str, default='label', help='Label field name in the dataset (default: label)')
+    
+    # Parse arguments
     args = parser.parse_args()
-
+    
     # Load dataset
     if args.dataset == 'mnist':
         x_train, y_train, x_test, y_test, min_value, max_value = load_mnist_dataset()
     elif args.dataset == 'cifar10':
-        print('Loading CIFAR-10 dataset...')
         x_train, y_train, x_test, y_test, min_value, max_value = load_cifar10_dataset()
     elif args.dataset == 'imdb':
         x_train, y_train, x_test, y_test, min_value, max_value = load_imdb_dataset()    
     elif args.dataset == 'mydata':
         x_train, y_train, x_test, y_test, min_value, max_value = load_mydata()
-    elif args.hf_dataset is not None:
-        x_train, y_train, x_test, y_test, min_value, max_value = load_hf_dataset(args.hf_dataset_name, args.hf_text_field, args.hf_label_field) 
+    elif args.dataset == 'hf_dataset':
+        if args.hf_text_field is None:
+            raise ValueError('Please provide --hf_text_field for loading Hugging Face dataset')
+        elif args.hf_label_field is None:                                                   
+            raise ValueError('Please provide --hf_label_field for loading Hugging Face dataset')
+        x_train, y_train, x_test, y_test, min_value, max_value = load_hf_dataset(args.hf_dataset, args.hf_text_field, args.hf_label_field)
     else:
-        raise ValueError('Please specify a correct dataset: mnist, cifar10, or mydata.')
+        raise ValueError('Please specify a correct dataset: mnist, cifar10, mydata or hf_dataset.')
 
     # Define input shape
     #input_shape = tuple(x_train.shape[1:])
 
     # Load model
     if args.model == 'BertModel':
-        model = BertModel.from_pretrained('bert-base-uncased') #for decoding->spade
+        model = AutoModel.from_pretrained('bert-base-uncased')  # 仅 BERT 主干，用于特征提取
     elif args.model == 'BertForSequenceClassification':
-        model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2) #for classification->privacy
+        model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=args.nb_classes)  # 文本分类
+    elif args.model == 'BertForTokenClassification':
+        model = AutoModelForTokenClassification.from_pretrained('bert-base-uncased', num_labels=args.nb_classes)                   # 命名实体识别
+    elif args.model == 'BertForQuestionAnswering':
+        model = AutoModelForQuestionAnswering.from_pretrained('bert-base-uncased')  # 问答系统
+    elif args.model == 'GPT2':
+        model = AutoModelForCausalLM.from_pretrained('gpt2')  # GPT2 语言模型
+    elif args.model == 'T5':
+        model = AutoModelForSeq2SeqLM.from_pretrained('t5-small')  # T5 生成模型
     elif args.model == 'ResNet':
         model = torchvision.models.resnet18(pretrained=True)
     elif args.model == 'mymodel':
         model = Net()
         model.load_state_dict(torch.load(load_path))
-    elif args.hf_model_name is not None:
-            odel = AutoModel.from_pretrained(args.hf_model_name)
-    model.eval()
+    elif args.model == 'hf_model':
+        model = AutoModel.from_pretrained(hf_model_path)
+        print('Hugging Face model loaded successfully.')
+    else:
+        raise ValueError('Please specify a correct model')   
+        
+
 
     # Call the corresponding function based on the provided task
     if args.task_need == 'robustness_clever':
+        print(f'class number: {args.nb_classes}')
+        model.eval()
         clever_score = calculate_clever_scores(args.nb_classes, model, x_test)
     elif args.task_need == 'robustness_spade':
+        model.eval()
         spade_score_val = calculate_spade(args.nb_classes, model, x_test, NLP=args.NLP)
     elif args.task_need == 'privacy':
+        model.eval()
         calculate_SHAPr(args.nb_classes, model, x_train, y_train, x_test, y_test, NLP=args.NLP)
     elif args.task_need == 'poison':
         if args.patch_size is None:
             raise ValueError('Please provide --patch_size for data poisoning task.')
         poison(args.nb_classes, args.check_attack_effect, trigger_path, args.patch_size, x_train, x_test, y_train, y_test, min_value, max_value, model)
     elif args.task_need == 'explain':
+        model.eval()
         if args.num_channels is None:
             raise ValueError('Please provide --num_channels for model explanation task.')
         explain(args.nb_classes, args.num_channels, model)
     elif args.task_need == 'explain_geex':
+        model.eval()
         if args.num_channels is None:
             raise ValueError('Please provide --num_channels for model explanation task.')
         explain_geex(args.nb_classes, args.num_channels, model)
     elif args.task_need == 'robustness_poisonability':
+        model.eval()
         # SPADE scores were calculated by selecting a specific sample as well as a small data set, reflecting the easy neutrality of that data point
         calculate_spade_single(args.nb_classes, model, x_test, sample_index=args.sample_index)
     else:

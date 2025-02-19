@@ -4,8 +4,11 @@ This repository contains a set of utilities for evaluating and performing advers
 
 ## **Features**
 
-- **[CLEVER Scores Calculation](https://openreview.net/pdf?id=BkUHlMZ0b)**: Assess the robustness of a model by calculating CLEVER scores.  
-  A higher CLEVER score indicates better network robustness, as the smallest hostile disturbance may have a larger Lp norm. The value range depends on the radius size, which is 0 - 5 by default, and can be modified in the function `utils/compute_untargeted_clever()`.
+- **CLEVER Scores Calculation**: Assess the robustness of a model by calculating [CLEVER scores](https://openreview.net/pdf?id=BkUHlMZ0b).  
+  A higher CLEVER score indicates better network robustness, as the smallest hostile disturbance may have a larger Lp norm. The value range depends on the radius size, which is 0 - 5 by default, and can be modified in the function `toolbox/compute_untargeted_clever()`.
+
+- **SPADE Scores Calculation**: Assess the robustness of a model by calculating [SPADE scores](https://arxiv.org/pdf/2102.03716).  
+  The SPADE score ranges between 0 and 1, where 1 indicates that the model is robust and accurately learns the input-output structure, while values closer to 0 suggest the model might not be capturing the essential data structure.
 
 - **Privacy Assessment**: Evaluate model privacy using [SHAPr leakage metrics](https://arxiv.org/abs/2112.02230).  
   A higher final SHAPr score for a training sample means it is more vulnerable to privacy attacks. The values range from 0 - 1.
@@ -62,8 +65,8 @@ Ensure you have Python 3.7 installed, along with the following packages:
     specify the model name in your configuration or command-line arguments.
 
     ```bash
-    $ python toolbox.py --hf_model <hf_model_name>
-    - <hf_model_name>: Name of the Hugging Face model (e.g., "bert-base-uncased").
+    $ python toolbox.py -m <hf_model_name>
+    - <hf_model_name>: Name of the Hugging Face model ("BertModel","BertForSequenceClassification","BerBertForTokenClassificationtModel","BertForQuestionAnswering","GPT2","T5").
     ```
     specify the dataset name, text field, and label field in the command line.
 
@@ -121,7 +124,7 @@ $ python3 toolbox.py -d <dataset> -t robustness_clever -c <nb_classes> -m <model
 ```
 ### **2.Evaluate SPADE Scores for Model Robustness**
 
-To evaluate model privacy using SHAPr leakage, run:
+To evaluate model privacy using SPADE cores, run:
 For Image
 ```bash
 $ python3 toolbox.py -d <dataset>  -t robustness_spade -c <nb_classes> -m <model>
@@ -171,13 +174,14 @@ $ python3 toolbox.py -d <dataset>  -t privacy -c <nb_classes> -m <model> --NLP
 To generate poisoned data and evaluate the attack effect, execute:
 
 ```bash
-$ python3 toolbox.py -d <dataset> -t poison -c <nb_classes> -s <patch_size> -test
+$ python3 toolbox.py -d <dataset> -m <model> -t poison -c <nb_classes> -s <patch_size> -test
 ```
 If just need posioned data, execute:
 
 ```bash
-$ python3 toolbox.py -d <dataset> -t poison -c <nb_classes> -s <patch_size>
+$ python3 toolbox.py -d <dataset> -m <model> -t poison -c <nb_classes> -s <patch_size>
 - <dataset>: Specify your dataset (e.g., "imdb").
+- <model>:Specify your model (e.g., "BertForSequenceClassification'", "mymodel").
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <patch_size> Specify the patch size for the poison data.
 ```
@@ -187,7 +191,8 @@ $ python3 toolbox.py -d <dataset> -t poison -c <nb_classes> -s <patch_size>
 To generate explanations for model predictions, use:
 
 ```bash
-$ python toolbox.py -t explain -c <nb_classes> -ch <num_channels>
+$ python toolbox.py -t explain -m <model> -c <nb_classes> -ch <num_channels>
+- <model>:Specify your model (e.g., "BertForSequenceClassification'", "mymodel").
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <num_channels>: Specify with the number of channels in your uploaded images.
 ```
@@ -196,20 +201,21 @@ $ python toolbox.py -t explain -c <nb_classes> -ch <num_channels>
 To generate explanations with GEEX for model predictions, use:
 
 ```bash
-$ python toolbox.py -t explain_geex -c <nb_classes> -ch <num_channels>
+$ python toolbox.py -t explain_geex -m <model> -c <nb_classes> -ch <num_channels>
+- <model>:Specify your model (e.g., "BertForSequenceClassification'", "mymodel").
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <num_channels>: Specify with the number of channels in your uploaded images.
 ```
 ## **Example**
 ### **1. Evaluate CLEVER Scores for Model Robustness:**
 ```bash
-$ python3 toolbox.py -d cifar10 -t robustness_clever -c 10 -m ResNet
+$ python3 toolbox.py -d cifar10 -t robustness_clever -c 10 -m mymodel
 ```
 
 ### **2. Evaluate SPADE Scores for Model Robustness:**
 Fir Image:
 ```bash
-$ python3 toolbox.py -t robustness_spade -d cifar10 -c 10 -m ResNet
+$ python3 toolbox.py -t robustness_spade -d cifar10 -c 10 -m mymodel
 ```
 FOR NLP:
 ```bash
@@ -218,13 +224,13 @@ $ python3 toolbox.py -t robustness_spade -d imdb -c 2 -m BertModel --NLP
 
 ### **3. Evaluate Single SPADE Scores for Data Robustness:**
 ```bash
-$ python3 toolbox.py -d cifar10 -t robustness_poisonability -c 10 -m ResNet --sample_index 6
+$ python3 toolbox.py -d cifar10 -t robustness_poisonability -c 10 -m mymodel --sample_index 6
 ```
 
 ### **4. Assess Privacy (SHAPr Leakage):**
 For Image:
 ```bash
-$ python3 toolbox.py -d cifar10 -t privacy -c 10 -m ResNet 
+$ python3 toolbox.py -d cifar10 -t privacy -c 10 -m mymodel 
 ```
 For NLP
 ```bash
@@ -233,17 +239,17 @@ $ python3 toolbox.py -d imdb -t privacy -c 10 -m BertForSequenceClassification -
 
 ### **5. Perform Data Poisoning:**
 ```bash
-$ python3 toolbox.py -d cifar10 -t poison -c 10 -s 8 -test
+$ python3 toolbox.py -d cifar10 -m mymodel -t poison -c 10 -s 8 -test
 ```
 
 ### **6. Explain Model Predictions Using LIME:**
 ```bash
-$ python3 toolbox.py -d mnist -t explain -c 10 -ch 1
+$ python3 toolbox.py -d mnist -m mymodel -t explain -c 10 -ch 1
 ```
 
 ### **7. Explain Model Predictions Using GEEX:**
 ```bash
-$ python3 toolbox.py -d mnist -t explain_geex -c 10 -ch 1 
+$ python3 toolbox.py -d mnist -m mymodel -t explain_geex -c 10 -ch 1 
 ```
 
 ## **NOTES**
