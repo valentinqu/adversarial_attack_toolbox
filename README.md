@@ -34,59 +34,6 @@ Ensure you have Python 3.7 installed, along with the following packages:
 - `torchvision 0.14.1`
 - `lime 0.2.0.1`
 
-## **Configuration**
-
-1. **Create a `config.yaml` file** in the same directory with the following format:
-
-    ```yaml
-    model_path: 'path/to/your/model.pth'
-    trigger_path: 'path/to/trigger/image.png'
-    ```
-
-    - `model_path`: Path to your trained model checkpoint.
-    - `trigger_path`: Path to the trigger image used for data poisoning.
-
-2. **Define the `Net` class** in `model.py` to represent your neural network architecture.
-
-3. **Store your `.pth` files** in the `models/` directory (e.g., `models/my_model.pth`).
-
-4. **Custom Dataset**:
-   - **CSV Label File (`labels.csv`)**: This file should contain two columns - the first column is the image file name, and the second column is the corresponding label. Example:
-   
-     ```csv
-     image1.png,0
-     image2.png,1
-     image3.png,0
-     ```
-   - **Image folder**: Ensure that the image folder contains all image files with filenames matching the names in the CSV.
-
-5. **Skip 1-4,using Hugging Face Models and Datasets**:
-
-    specify the model name in your configuration or command-line arguments.
-
-    ```bash
-    $ python toolbox.py -m <hf_model_name>
-    - <hf_model_name>: Name of the Hugging Face model ("BertModel","BertForSequenceClassification","BerBertForTokenClassificationtModel","BertForQuestionAnswering","GPT2","T5").
-    ```
-    specify the dataset name, text field, and label field in the command line.
-
-    ```
-    $ python toolbox.py --hf_dataset <hf_dataset_name> --hf_text_field <text> --hf_label_field <label>
-    
-    -- <hf_dataset_name>: Name of the Hugging Face dataset (e.g., "imdb").
-    -- <text>: Field name for text data in the Hugging Face dataset (default: "text").
-    -- <label>: Field name for labels in the Hugging Face dataset (default: "label").
-
-6. **For Model explanations**: Place images for processing into the `images_upload/class_0/` directory.
-
-7. **For data poisoning**: Place the trigger image into the `trigger/` directory, add trigger image path to `config.yaml` file
-    ```yaml
-    trigger_path: 'path/to/trigger/image.png'
-    ```
-    - `trigger_path`: Path to the trigger image used for data poisoning.
-
-
-
 ## **Environment Installation Options**
 
 You can set up the environment using either Conda or Docker.
@@ -107,6 +54,77 @@ Alternatively, you can use Docker to set up and run the toolbox. To build and ru
 docker build -t adversarial-attack-toolbox .
 bash run_docker.sh # create docker container
 ```
+
+## **Configuration**
+
+# If you want to use Custom Dataset: 
+
+**Method 1 - Custom Own Dataset**:
+- **CSV Label File (`labels.csv`)**: This file should contain two columns - the first column is the image file name, and the second column is the corresponding label. Example:
+   
+     ```csv
+     image1.png,0
+     image2.png,1
+     image3.png,0
+     ```
+- **Image folder**: Ensure that the image folder contains all image files with filenames matching the names in the CSV.
+
+**Method 2: Use Hugging Face Dataset**:
+ 
+specify the dataset name, text field, and label field in the command line:
+
+    ```bash
+    $ python toolbox.py --hf_dataset <hf_dataset_name> --hf_text_field <text> --hf_label_field <label>
+    
+    -- <hf_dataset_name>: Name of the Hugging Face dataset (e.g., "imdb").
+    -- <text>: Field name for text data in the Hugging Face dataset (default: "text").
+    -- <label>: Field name for labels in the Hugging Face dataset (default: "label").
+    ```
+
+# If you want to use Custom Model:
+**Method 1 - Custom Own Dataset with PyTorch**:
+
+1. **Adjust `config.yaml` file** in the same directory with the following format:
+
+    ```yaml
+    model_path: 'path/to/your/model.pth'
+    trigger_path: 'path/to/trigger/image.png'
+    ```
+
+    - `model_path`: Path to your trained model checkpoint.
+    - `trigger_path`: Path to the trigger image used for data poisoning.
+
+2. **Define the `Net` class** in `model.py` to represent your neural network architecture.
+
+3. **Store your `.pth` files** in the `models/` directory (e.g., `models/my_model.pth`).
+
+**Method 2 - Use Hugging Face Model**:
+    specify the model_class and model name in HuggingFace.
+
+    ```bash
+    $ python toolbox.py -m <model_class> -model_name <model_name>: 
+
+    --  <model_class>: class of the Hugging Face model ("BertModel","BertForSequenceClassification","BerBertForTokenClassificationtModel","BertForQuestionAnswering", etc).
+    -- <model_name> name of the Hugging Face model("bert-base-uncased", "gpt2", etc)
+    ```
+
+# Only for Data Poisoning
+
+Place the trigger image into the `trigger/` directory, add trigger image path to `config.yaml` file
+
+    ```yaml
+    trigger_path: 'path/to/trigger/image.png'
+    ```
+    - `trigger_path`: Path to the trigger image used for data poisoning.
+
+# Only for  Model explanations:
+
+Place images for processing into the `images_upload/class_0/` 
+
+
+
+
+
 ## **Usage**
 If you are using Docker to set up the environment, run commands directly within the container's command line. 
 
@@ -120,7 +138,7 @@ $ python3 toolbox.py -d <dataset> -t robustness_clever -c <nb_classes> -m <model
 
 - <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
 - <nb_classes>: Replace with the number of classes in your dataset.
-- <model>:Specify your model (e.g., "ResNet", "mymodel").
+- <model>:Specify your model.
 ```
 ### **2.Evaluate SPADE Scores for Model Robustness**
 
@@ -130,14 +148,14 @@ For Image
 $ python3 toolbox.py -d <dataset>  -t robustness_spade -c <nb_classes> -m <model>
 - <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
 - <nb_classes>: Specify with the number of classes in your dataset.
-- <model>:Specify your model (e.g., "ResNet", "mymodel").
+- <model>:Specify your model.
 ```
 For NLP
 ```bash
-$ python3 toolbox.py -d <dataset>  -t robustness_spade -c <nb_classes> -m <model> --NLP
+$ python3 toolbox.py -d <dataset>  -t robustness_spade_NLP -c <nb_classes> -m <model> 
 - <dataset>: Specify your dataset (e.g., "imdb").
 - <nb_classes>: Specify with the number of classes in your dataset.
-- <model>:Specify your model (e.g., "BertModel'", "mymodel").
+- <model>:Specify your model.
 ```
 
 ### **3.Evaluate Single SPADE Scores for Data Robustness**
@@ -145,7 +163,7 @@ $ python3 toolbox.py -d <dataset>  -t robustness_spade -c <nb_classes> -m <model
 $ python3 toolbox.py -d <dataset>  -t robustness_poisonability -c <nb_classes> -m <model> --sample_index <sample_index>
 - <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
 - <nb_classes>: Replace with the number of classes in your dataset.
-- <model>:Specify your model (e.g., "ResNet", "mymodel").
+- <model>:Specify your model.
 - <sample_index>Specify the index of single data for robustness poisonability evaluation(e.g., "5").
 ```
 
@@ -158,12 +176,12 @@ For Image
 $ python3 toolbox.py -d <dataset>  -t privacy -c <nb_classes> -m <model>
 - <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
 - <nb_classes>: Specify with the number of classes in your dataset.
-- <model>:Specify your model (e.g., "ResNet", "mymodel").
+- <model>:Specify your model.
 ```
 
 For NLP
 ```bash
-$ python3 toolbox.py -d <dataset>  -t privacy -c <nb_classes> -m <model> --NLP
+$ python3 toolbox.py -d <dataset>  -t privacy_NLP -c <nb_classes> -m <model>
 - <dataset>: Specify your dataset (e.g., "imdb").
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <model>:Specify your model (e.g., "BertForSequenceClassification'", "mymodel").
@@ -219,7 +237,7 @@ $ python3 toolbox.py -t robustness_spade -d cifar10 -c 10 -m mymodel
 ```
 FOR NLP:
 ```bash
-$ python3 toolbox.py -t robustness_spade -d imdb -c 2 -m BertModel --NLP
+$ python3 toolbox.py -t robustness_spade_NLP -d imdb -c 2 -m BertModel
 ```
 
 ### **3. Evaluate Single SPADE Scores for Data Robustness:**
@@ -234,7 +252,7 @@ $ python3 toolbox.py -d cifar10 -t privacy -c 10 -m mymodel
 ```
 For NLP
 ```bash
-$ python3 toolbox.py -d imdb -t privacy -c 10 -m BertForSequenceClassification --NLP
+$ python3 toolbox.py -d imdb -t privacy_NLP -c 10 -m BertForSequenceClassification
 ```
 
 ### **5. Perform Data Poisoning:**
@@ -254,3 +272,4 @@ $ python3 toolbox.py -d mnist -m mymodel -t explain_geex -c 10 -ch 1
 
 ## **NOTES**
 - For data poisoning, adjust the patch_size, learning rates, and other parameters as needed.
+- When this phrase ' delete this range if you want to use all samples' appears, it means that it is used to reduce code runtime and needs to be commented out when deployed.
