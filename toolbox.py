@@ -33,6 +33,7 @@ def main():
 
     # Dataset selection arguments
     parser.add_argument('-d', '--dataset', required=True, help='Dataset to use (mnist, cifar10, mydata, hf_dataset)')
+    parser.add_argument('--hf_dataset', type=str, help='Hugging Face dataset name')
     parser.add_argument('--hf_text_field', type=str, default='text', help='Text field name in the Hugging Face dataset')
     parser.add_argument('--hf_label_field', type=str, default='label', help='Label field name in the Hugging Face dataset')
 
@@ -68,7 +69,7 @@ def main():
     elif args.dataset == 'hf_dataset':
         if args.hf_text_field is None or args.hf_label_field is None:
             raise ValueError('Please specify both --hf_text_field and --hf_label_field for Hugging Face dataset')
-        x_train, y_train, x_test, y_test, min_value, max_value = load_hf_dataset(args.dataset, args.hf_text_field, args.hf_label_field)
+        x_train, y_train, x_test, y_test, min_value, max_value = load_hf_dataset(args.hf_dataset, args.hf_text_field, args.hf_label_field)
     else:
         raise ValueError('Invalid dataset choice! Choose from mnist, cifar10, mydata, hf_dataset.')
 
