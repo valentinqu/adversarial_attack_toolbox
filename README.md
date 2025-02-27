@@ -45,7 +45,7 @@ To create and activate a Conda environment, follow these steps:
 ```bash
 conda create -n adversarial_env python=3.7
 conda activate adversarial_env
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 ### **Option 2: Using Docker**
 Alternatively, you can use Docker to set up and run the toolbox. To build and run the Docker container, use the following commands:
@@ -102,7 +102,7 @@ specify the dataset name, text field, and label field in the command line:
     specify the model_class and model name in HuggingFace.
 
     ```bash
-    $ python toolbox.py -m <model_class> -model_name <model_name>: 
+    $ python toolbox.py -m <model_class> --model_name <model_name>: 
 
     --  <model_class>: class of the Hugging Face model ("BertModel","BertForSequenceClassification","BerBertForTokenClassificationtModel","BertForQuestionAnswering", etc).
     -- <model_name> name of the Hugging Face model("bert-base-uncased", "gpt2", etc)

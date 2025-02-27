@@ -56,7 +56,7 @@ def load_mnist_dataset():
     max_value = x_train.max()
 
     return x_train, y_train, x_test, y_test, min_value, max_value
-
+'''
 def load_cifar10_dataset():
     transform = transforms.Compose(
         [transforms.ToTensor()]
@@ -72,8 +72,46 @@ def load_cifar10_dataset():
 
     min_value = x_train.min()
     max_value = x_train.max()
+    #print(type(x_train))  # <class 'torch.Tensor'>
+    #print(x_train.shape)  # torch.Size([50000, 3, 32, 32])
+    return x_train, y_train, x_test, y_test, min_value, max_value
+'''
+
+
+def load_cifar10_dataset():
+    # Define a simple transform (only convert to tensor).
+    # Typically, you'd also include normalization here.
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+
+    # Download (if needed) and load CIFAR-10 training and testing datasets
+    trainset = torchvision.datasets.CIFAR10(root='./data', 
+                                            train=True, 
+                                            download=True, 
+                                            transform=transform)
+    testset = torchvision.datasets.CIFAR10(root='./data', 
+                                           train=False, 
+                                           download=True, 
+                                           transform=transform)
+
+    # Create DataLoaders that load the entire dataset in one batch
+    trainloader = torch.utils.data.DataLoader(trainset, 
+                                              batch_size=len(trainset),
+                                              shuffle=False)
+    testloader = torch.utils.data.DataLoader(testset, 
+                                             batch_size=len(testset),
+                                             shuffle=False)
+
+    # Extract all images and labels in one pass
+    x_train, y_train = next(iter(trainloader))  # shape: [50000, 3, 32, 32], [50000]
+    x_test, y_test = next(iter(testloader))     # shape: [10000, 3, 32, 32], [10000]
+
+    min_value = x_train.min()
+    max_value = x_train.max()
 
     return x_train, y_train, x_test, y_test, min_value, max_value
+
 
 def load_imdb_dataset():
     """
@@ -91,7 +129,6 @@ def load_imdb_dataset():
     dataset = load_dataset('imdb')
     train_data = dataset['train']
     test_data = dataset['test']
-
     # Extract text reviews and labels
     x_train = train_data['text']   # List of strings (reviews)
     y_train = train_data['label']  # List of integers (0 or 1)
@@ -102,53 +139,99 @@ def load_imdb_dataset():
     # Since text data has no numerical min/max values, return None
     min_value = None
     max_value = None
-
     return x_train, y_train, x_test, y_test, min_value, max_value
 
 def load_hf_dataset(dataset_name, text_field='text', label_field='label'):
     """
     Load a dataset from the Hugging Face datasets library.
+    Supports both text (NLP) and image (CV) datasets.
 
     Args:
         dataset_name (str): Name of the dataset to load.
-        text_field (str): Text field name, default is 'text'.
-        label_field (str): Label field name, default is 'label'.
+        text_field (str): Name of the text field for NLP datasets, default is 'text'.
+        label_field (str): Name of the label field, default is 'label'.
+        image_field (str): Name of the image field for image datasets, default is 'image'.
 
-    returns:
-        tuple: x_train, y_train, x_test, y_test, min_value, max_value
+    Returns:
+        tuple: (x_train, y_train, x_test, y_test, min_value, max_value)
+               - x_train: Training features (text or images)
+               - y_train: Training labels
+               - x_test: Testing features (text or images)
+               - y_test: Testing labels
+               - min_value: Minimum pixel value (only for image datasets, None for text)
+               - max_value: Maximum pixel value (only for image datasets, None for text)
     """
     try:
-        
         dataset = load_dataset(dataset_name)
 
-        # check if text and label fields exist in the dataset
-        if text_field not in dataset['train'].features:
-            raise ValueError(f"Text field '{text_field}' not found in dataset.")
-        if label_field not in dataset['train'].features:
-            raise ValueError(f"Label field '{label_field}' not found in dataset.")
+        # Determine whether the dataset is NLP (text) or CV (image)
+        if 'text' in text_field:
+            data_type = 'text'  # NLP dataset
+        elif 'img' in text_field:
+            data_type = 'image'  # Image dataset
+        else:
+            raise ValueError(f"Dataset '{dataset_name}' does not contain '{text_field}'fields.")
 
-       
         train_data = dataset['train']
         test_data = dataset['test']
 
-        x_train = train_data[text_field]  
-        y_train = train_data[label_field]  
+        if data_type == 'text':  # Handling NLP datasets
+            x_train = train_data[text_field]  
+            x_test = test_data[text_field]  
+            y_train = train_data[label_field]  
+            y_test = test_data[label_field]
+            min_value, max_value = None, None  # No min/max for text data
 
-        x_test = test_data[text_field]
-        y_test = test_data[label_field]
+        elif data_type == 'image':  # Handling Image datasets
+            '''
+            transform = transforms.Compose([
+                    transforms.ToTensor(),
+                ])
+            
+            def apply_transform(example):
+                example["img"] = transform(example["img"])
+                return example
+            x_train = dataset["train"]["img"].map(apply_transform)
+            print(type(x_train))
+            dataset["train"] = dataset["train"].map(apply_transform)
+            dataset["test"] = dataset["test"].map(apply_transform)
+            dataset["train"].set_format(type="torch", columns=["img", "label"])
+            dataset["test"].set_format(type="torch", columns=["img", "label"])
 
-        # Since text data has no numerical min/max values, return None  
-        min_value = None
-        max_value = None
+            trainloader = torch.utils.data.DataLoader(dataset["train"], batch_size=len(dataset["train"]), shuffle=True)
+            testloader = torch.utils.data.DataLoader(dataset["test"], batch_size=len(dataset["train"]), shuffle=False)
+            '''
+            #x_train = np.stack(train_data[text_field])  # 直接转换，避免列表
+            #x_test = np.stack(test_data[text_field])
+            #y_train = np.asarray(train_data[label_field])  # 确保标签为整数类型
+            #y_test = np.asarray(test_data[label_field])
+
+            x_train = train_data[text_field]# 直接转换，避免列表
+            x_test = test_data[text_field]
+            y_train = train_data[label_field] # 确保标签为整数类型
+            y_test = test_data[label_field]
+
+            # Compute the minimum and maximum pixel values
+            min_value = np.min(x_train)
+            max_value = np.max(x_train) 
+                # Extract all images and labels in one pass
+            #x_train, y_train = next(iter(trainloader))  # shape: [50000, 3, 32, 32], [50000]
+            #x_test, y_test = next(iter(testloader))     # shape: [10000, 3, 32, 32], [10000]
+
+            #min_value = x_train.min()
+            #max_value = x_train.max()
 
         print(f"Dataset '{dataset_name}' loaded successfully.")
         print(f"Train samples: {len(x_train)}, Test samples: {len(x_test)}")
-
+        
+        if data_type == 'image':
+            print(f"Pixel value range: {min_value} - {max_value}")
         return x_train, y_train, x_test, y_test, min_value, max_value
 
     except Exception as e:
         print(f"Error loading dataset '{dataset_name}': {str(e)}")
         return None, None, None, None, None, None
+
     
 
 class TextDataset(Dataset):
@@ -249,7 +332,7 @@ def to_one_hot(y, nb_classes):
     return np.eye(nb_classes)[y] 
 
 def hnsw(features, k=10, ef=100, M=48):
-    """使用 HNSW 构建最近邻图"""
+    """build k-NN graph using hnswlib"""
     num_samples, dim = features.shape
     p = hnswlib.Index(space='l2', dim=dim)
     p.init_index(max_elements=num_samples, ef_construction=ef, M=M)
@@ -260,7 +343,7 @@ def hnsw(features, k=10, ef=100, M=48):
     return neighs, weight
 
 def construct_adj(neighs, weight):
-    """构建邻接矩阵"""
+    """build adjacency matrix"""
     dim = neighs.shape[0]
     k = neighs.shape[1] - 1
     idx0 = np.arange(dim)
@@ -273,18 +356,18 @@ def construct_adj(neighs, weight):
     return adj
 
 def spade_score(input_features, output_features, k=10):
-    """计算 SPADE 分数"""
-    # 构建输入和输出的 k-NN 图
+    """ SPADE score"""
+    # build k-NN graph
     neighs_in, dist_in = hnsw(input_features, k)
     adj_in = construct_adj(neighs_in, dist_in)
     neighs_out, dist_out = hnsw(output_features, k)
     adj_out = construct_adj(neighs_out, dist_out)
 
-    # 拉普拉斯矩阵
+    # laplacian matrix
     L_in = laplacian(adj_in, normed=True)
     L_out = laplacian(adj_out, normed=True)
 
-    # 特征值分解
+    # eigenvalues
     eigvals_in, eigvecs_in = np.linalg.eig(L_in.toarray())
     eigvals_out, eigvecs_out = np.linalg.eig(L_out.toarray())
 

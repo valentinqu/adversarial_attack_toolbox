@@ -34,8 +34,8 @@ else
 fi
 
 # Ensure dependencies from requirements.txt are installed
-echo "Installing dependencies from requirements.txt..."
-docker exec -it ${CONTAINER_NAME} bash -c "
+#echo "Installing dependencies from requirements.txt..."
+#docker exec -it ${CONTAINER_NAME} bash -c "
     cd ${CONTAINER_DIR} && \
     if [ -f requirements.txt ]; then 
         pip install -r requirements.txt; 

@@ -26,7 +26,7 @@ from utils import *
 def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
     """Calculate untargeted CLEVER scores."""
     device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    input_shape = x_test.shape[1:]
+    input_shape = np.array(x_test[0]).shape
     clever_calculator = PyTorchClassifier(
         model=model,
         input_shape=input_shape,
@@ -38,7 +38,11 @@ def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
 
     scores = []
     for i in range(50):  # Use the first 50 test images
-        image = x_test[i].numpy()  
+        #print(x_test[i].shape)
+        image = np.array(x_test[i], dtype=np.float32)
+        image = np.transpose(image, (2, 0, 1))
+        #image = x_test[i].numpy()  
+        print(image.shape)
         clever_untargeted = clever_u(clever_calculator, image, nb_batches=50, batch_size=10, radius=5, norm=1)
         scores.append(clever_untargeted)
 

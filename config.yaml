@@ -1,7 +1,6 @@
 
-model_path: 'models/mnist_net.pth'
-
-#model_path: 'models/cifar_net.pth'
+#model_path: 'models/mnist_net.pth'
+model_path: 'models/cifar_net.pth'
 #model_path: 'models/cifar_net_resnet.pth'
 
 # trigger_path: '/app/trigger/trigger_10.png' 
