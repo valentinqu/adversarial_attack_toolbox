@@ -155,7 +155,7 @@ $ python3 ....
 
 #### data from hf, model from hf
 
-### **Example for nlp**
+### **Example for nlp **
 
 #### data local, model local
 not possible
