@@ -56,27 +56,6 @@ def load_mnist_dataset():
     max_value = x_train.max()
 
     return x_train, y_train, x_test, y_test, min_value, max_value
-'''
-def load_cifar10_dataset():
-    transform = transforms.Compose(
-        [transforms.ToTensor()]
-    )
-
-    # Load CIFAR-10 training and testing sets
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-
-    # Extract the entire training and test sets
-    x_train, y_train = torch.utils.data.default_collate(trainset)
-    x_test, y_test = torch.utils.data.default_collate(testset)
-
-    min_value = x_train.min()
-    max_value = x_train.max()
-    #print(type(x_train))  # <class 'torch.Tensor'>
-    #print(x_train.shape)  # torch.Size([50000, 3, 32, 32])
-    return x_train, y_train, x_test, y_test, min_value, max_value
-'''
-
 
 def load_cifar10_dataset():
     # Define a simple transform (only convert to tensor).
@@ -111,7 +90,6 @@ def load_cifar10_dataset():
     max_value = x_train.max()
 
     return x_train, y_train, x_test, y_test, min_value, max_value
-
 
 def load_imdb_dataset():
     """
@@ -183,43 +161,15 @@ def load_hf_dataset(dataset_name, text_field='text', label_field='label'):
             min_value, max_value = None, None  # No min/max for text data
 
         elif data_type == 'image':  # Handling Image datasets
-            '''
-            transform = transforms.Compose([
-                    transforms.ToTensor(),
-                ])
-            
-            def apply_transform(example):
-                example["img"] = transform(example["img"])
-                return example
-            x_train = dataset["train"]["img"].map(apply_transform)
-            print(type(x_train))
-            dataset["train"] = dataset["train"].map(apply_transform)
-            dataset["test"] = dataset["test"].map(apply_transform)
-            dataset["train"].set_format(type="torch", columns=["img", "label"])
-            dataset["test"].set_format(type="torch", columns=["img", "label"])
 
-            trainloader = torch.utils.data.DataLoader(dataset["train"], batch_size=len(dataset["train"]), shuffle=True)
-            testloader = torch.utils.data.DataLoader(dataset["test"], batch_size=len(dataset["train"]), shuffle=False)
-            '''
-            #x_train = np.stack(train_data[text_field])  # 直接转换，避免列表
-            #x_test = np.stack(test_data[text_field])
-            #y_train = np.asarray(train_data[label_field])  # 确保标签为整数类型
-            #y_test = np.asarray(test_data[label_field])
-
-            x_train = train_data[text_field]# 直接转换，避免列表
+            x_train = train_data[text_field]
             x_test = test_data[text_field]
-            y_train = train_data[label_field] # 确保标签为整数类型
+            y_train = train_data[label_field] 
             y_test = test_data[label_field]
 
             # Compute the minimum and maximum pixel values
             min_value = np.min(x_train)
             max_value = np.max(x_train) 
-                # Extract all images and labels in one pass
-            #x_train, y_train = next(iter(trainloader))  # shape: [50000, 3, 32, 32], [50000]
-            #x_test, y_test = next(iter(testloader))     # shape: [10000, 3, 32, 32], [10000]
-
-            #min_value = x_train.min()
-            #max_value = x_train.max()
 
         print(f"Dataset '{dataset_name}' loaded successfully.")
         print(f"Train samples: {len(x_train)}, Test samples: {len(x_test)}")
@@ -231,8 +181,6 @@ def load_hf_dataset(dataset_name, text_field='text', label_field='label'):
     except Exception as e:
         print(f"Error loading dataset '{dataset_name}': {str(e)}")
         return None, None, None, None, None, None
-
-    
 
 class TextDataset(Dataset):
     def __init__(self, texts, labels=None, tokenizer=None, max_length=128):
