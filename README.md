@@ -145,12 +145,12 @@ $ python3 toolbox.py -d <dataset> -t robustness_clever -c <nb_classes> -m <model
 #### data from local, model from local
 
 ```bash
-$ python3 toolbox.py -d cifar10 -t robustness_clever -c 10 -m mymodel
+$ python3 ....
 ```
 #### data from hugging face, model from local
-
+```bash
 $ python3 ....
-
+```
 #### data from local, model from hugging face
 
 #### data from hf, model from hf
