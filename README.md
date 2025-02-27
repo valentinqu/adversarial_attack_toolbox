@@ -139,6 +139,35 @@ $ python3 toolbox.py -d <dataset> -t robustness_clever -c <nb_classes> -m <model
 - <nb_classes>: Replace with the number of classes in your dataset.
 - <model>:Specify your model.
 ```
+
+### **Example for image **
+
+#### data from local, model from local
+
+```bash
+$ python3 toolbox.py -d cifar10 -t robustness_clever -c 10 -m mymodel
+```
+#### data from hugging face, model from local
+
+$ python3 ....
+
+#### data from local, model from hugging face
+
+#### data from hf, model from hf
+
+### **Example for nlp**
+
+#### data local, model local
+not possible
+
+#### data from hugging face, model local
+not possible
+
+#### data local, model hf
+not possible
+
+#### data hf, model hf
+not possible
 ### **2.Evaluate SPADE Scores for Model Robustness**
 
 To evaluate model privacy using SPADE cores, run:
