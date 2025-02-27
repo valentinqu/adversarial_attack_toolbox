@@ -55,8 +55,8 @@ def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, NLP, de
     device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     max_length = 128
 
-    x_train = x_train[:100]  # Use the first 100 samples for training, delete this range if you want to use all samples
-    y_train = y_train[:100]  # Use the first 100 samples for training, delete this range if you want to use all samples
+    x_train = x_train[:10]  # Use the first 100 samples for training, delete this range if you want to use all samples
+    y_train = y_train[:10]  # Use the first 100 samples for training, delete this range if you want to use all samples
     if NLP:
         # Using TextDataset and DataLoader to transform text data into input_ids+attention_mask tensor
         train_set = TextDataset(x_train, y_train, max_length=max_length)

@@ -74,7 +74,7 @@ bash run_docker.sh # create docker container
 specify the dataset name, text field, and label field in the command line:
 
     ```bash
-    $ python toolbox.py --hf_dataset <hf_dataset_name> --hf_text_field <text> --hf_label_field <label>
+    $ python toolbox.py -d hf_dataset --hf_dataset <hf_dataset_name> --hf_text_field <text> --hf_label_field <label>
     
     -- <hf_dataset_name>: Name of the Hugging Face dataset (e.g., "imdb").
     -- <text>: Field name for text data in the Hugging Face dataset (default: "text").
@@ -88,7 +88,6 @@ specify the dataset name, text field, and label field in the command line:
 
     ```yaml
     model_path: 'path/to/your/model.pth'
-    trigger_path: 'path/to/trigger/image.png'
     ```
 
     - `model_path`: Path to your trained model checkpoint.
@@ -104,7 +103,7 @@ specify the dataset name, text field, and label field in the command line:
     ```bash
     $ python toolbox.py -m <model_class> --model_name <model_name>: 
 
-    --  <model_class>: class of the Hugging Face model ("BertModel","BertForSequenceClassification","BerBertForTokenClassificationtModel","BertForQuestionAnswering", etc).
+    -- <model_class>: class of the Hugging Face model ("BertModel","BertForSequenceClassification","BerBertForTokenClassificationtModel","BertForQuestionAnswering", etc).
     -- <model_name> name of the Hugging Face model("bert-base-uncased", "gpt2", etc)
     ```
 
@@ -273,3 +272,5 @@ $ python3 toolbox.py -d mnist -m mymodel -t explain_geex -c 10 -ch 1
 ## **NOTES**
 - For data poisoning, adjust the patch_size, learning rates, and other parameters as needed.
 - When this phrase ' delete this range if you want to use all samples' appears, it means that it is used to reduce code runtime and needs to be commented out when deployed.
+- The following error may occur when using conda to install the environment on ‘MacOs’：‘Preparing metadata (pyproject.toml) did not run successfully.’
+FIX：Brew install rust 

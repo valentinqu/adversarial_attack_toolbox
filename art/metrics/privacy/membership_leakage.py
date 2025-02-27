@@ -176,7 +176,6 @@ def SHAPr(  # pylint: disable=C0103
              the higher the privacy leakage for that sample. Any value above 0 should be considered a privacy leak.
     """
     if enable_logging:
-        # 配置基本的日志设置
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger(__name__)
 
