@@ -73,14 +73,13 @@ bash run_docker.sh # create docker container
  
 specify the dataset name, text field, and label field in the command line:
 
-    ```bash
-    $ python toolbox.py -d hf_dataset --hf_dataset <hf_dataset_name> --hf_text_field <text> --hf_label_field <label>
-    
-    -- <hf_dataset_name>: Name of the Hugging Face dataset (e.g., "imdb").
-    -- <text>: Field name for text data in the Hugging Face dataset (default: "text").
-    -- <label>: Field name for labels in the Hugging Face dataset (default: "label").
-    ```
+```bash
+$ python toolbox.py -d hf_dataset --hf_dataset <hf_dataset_name> --hf_text_field <text> --hf_label_field <label>
 
+-- <hf_dataset_name>: Name of the Hugging Face dataset (e.g., "imdb").
+-- <text>: Field name for text data in the Hugging Face dataset (default: "text").
+-- <label>: Field name for labels in the Hugging Face dataset (default: "label").
+```    
 # If you want to use Custom Model:
 **Method 1 - Custom Own Dataset with PyTorch**:
 
@@ -100,29 +99,25 @@ specify the dataset name, text field, and label field in the command line:
 **Method 2 - Use Hugging Face Model**:
     specify the model_class and model name in HuggingFace.
 
-    ```bash
-    $ python toolbox.py -m <model_class> --model_name <model_name>: 
+```bash
+$ python toolbox.py -m <model_class> --model_name <model_name>: 
 
-    -- <model_class>: class of the Hugging Face model ("BertModel","BertForSequenceClassification","BerBertForTokenClassificationtModel","BertForQuestionAnswering", etc).
-    -- <model_name> name of the Hugging Face model("bert-base-uncased", "gpt2", etc)
-    ```
+-- <model_class>: class of the Hugging Face model ("BertModel","BertForSequenceClassification","BerBertForTokenClassificationtModel","BertForQuestionAnswering", etc.).
+-- <model_name> name of the Hugging Face model("bert-base-uncased", "gpt2", etc.)
+```
 
 # Only for Data Poisoning
 
 Place the trigger image into the `trigger/` directory, add trigger image path to `config.yaml` file
 
-    ```yaml
-    trigger_path: 'path/to/trigger/image.png'
-    ```
-    - `trigger_path`: Path to the trigger image used for data poisoning.
+```yaml
+trigger_path: 'path/to/trigger/image.png'
+```
+- `trigger_path`: Path to the trigger image used for data poisoning.
 
 # Only for  Model explanations:
 
 Place images for processing into the `images_upload/class_0/` 
-
-
-
-
 
 ## **Usage**
 If you are using Docker to set up the environment, run commands directly within the container's command line. 
@@ -135,7 +130,7 @@ To calculate CLEVER scores for your model, run the following command:
 ```bash
 $ python3 toolbox.py -d <dataset> -t robustness_clever -c <nb_classes> -m <model>
 
-- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
+- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata"，etc.).
 - <nb_classes>: Replace with the number of classes in your dataset.
 - <model>:Specify your model.
 ```
@@ -145,16 +140,17 @@ $ python3 toolbox.py -d <dataset> -t robustness_clever -c <nb_classes> -m <model
 #### data from local, model from local
 
 ```bash
-$ python3 ....
+$ python3 toolbox.py -d cifar10 -t robustness_clever -c 10 -m mymodel
 ```
 #### data from hugging face, model from local
 ```bash
-$ python3 ....
+$ python3 toolbox.py -d hf_dataset --hf_dataset uoft-cs/cifar10--hf_text_field img --hf_label_field label -t robustness_clever -c 10 -m mymodel
 ```
 #### data from local, model from hugging face
+not possible
 
 #### data from hf, model from hf
-
+not possible
 ### **Example for nlp **
 
 #### data local, model local
@@ -174,26 +170,83 @@ To evaluate model privacy using SPADE cores, run:
 For Image
 ```bash
 $ python3 toolbox.py -d <dataset>  -t robustness_spade -c <nb_classes> -m <model>
-- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
+- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata"，etc.).
 - <nb_classes>: Specify with the number of classes in your dataset.
-- <model>:Specify your model.
+- <model>: Specify your model.
 ```
 For NLP
 ```bash
 $ python3 toolbox.py -d <dataset>  -t robustness_spade_NLP -c <nb_classes> -m <model> 
-- <dataset>: Specify your dataset (e.g., "imdb").
+- <dataset>: Specify your dataset (e.g., "imdb"，etc.).
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <model>:Specify your model.
 ```
+### **Example for image **
+
+#### data from local, model from local
+
+```bash
+$ python3 toolbox.py -t robustness_spade -d cifar10 -c 10 -m mymodel
+```
+#### data from hugging face, model from local
+```bash
+$ python3 toolbox.py -d hf_dataset --hf_dataset uoft-cs/cifar10 --hf_text_field img --hf_label_field label -t robustness_spade -c 10 -m mymodel
+```
+#### data from local, model from hugging face
+not possible
+
+#### data from hf, model from hf
+not possible
+### **Example for nlp **
+
+#### data local, model local
+```bash
+python3 toolbox.py -t robustness_spade_NLP -d imdb -c 2 -m BertModel 
+```
+#### data from hugging face, model local
+```bash
+$ python3 toolbox.py -d hf_dataset --hf_dataset stanfordnlp/imdb --hf_text_field text --hf_label_field label -t robustness_spade_NLP -c 10 -m BertModel
+```
+#### data local, model hf
+not possible
+#### data hf, model hf
+not possible
 
 ### **3.Evaluate Single SPADE Scores for Data Robustness**
 ```bash
 $ python3 toolbox.py -d <dataset>  -t robustness_poisonability -c <nb_classes> -m <model> --sample_index <sample_index>
-- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
+- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata"，etc.).
 - <nb_classes>: Replace with the number of classes in your dataset.
 - <model>:Specify your model.
 - <sample_index>Specify the index of single data for robustness poisonability evaluation(e.g., "5").
 ```
+### **Example for image **
+
+#### data from local, model from local
+
+```bash
+$ python3 toolbox.py -d cifar10 -t robustness_poisonability -c 10 -m mymodel --sample_index 6
+```
+#### data from hugging face, model from local
+```bash
+$ python3 toolbox.py -d hf_dataset --hf_dataset uoft-cs/cifar10 --hf_text_field img --hf_label_field label -t robustness_poisonability -c 10 -m mymodel --sample_index 6
+```
+#### data from local, model from hugging face
+not possible
+
+#### data from hf, model from hf
+not possible
+
+### **Example for nlp **
+
+#### data local, model local
+not possible
+#### data from hugging face, model local
+not possible
+#### data local, model hf
+not possible
+#### data hf, model hf
+not possible
 
 ### **4. Assess Privacy (SHAPr Leakage)**
 
@@ -202,7 +255,7 @@ To evaluate model privacy using SHAPr leakage, run:
 For Image
 ```bash
 $ python3 toolbox.py -d <dataset>  -t privacy -c <nb_classes> -m <model>
-- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata").
+- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata"，etc.).
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <model>:Specify your model.
 ```
@@ -210,9 +263,45 @@ $ python3 toolbox.py -d <dataset>  -t privacy -c <nb_classes> -m <model>
 For NLP
 ```bash
 $ python3 toolbox.py -d <dataset>  -t privacy_NLP -c <nb_classes> -m <model>
-- <dataset>: Specify your dataset (e.g., "imdb").
+- <dataset>: Specify your dataset (e.g., "imdb"，etc.).
 - <nb_classes>: Specify with the number of classes in your dataset.
-- <model>:Specify your model (e.g., "BertForSequenceClassification'", "mymodel").
+- <model>:Specify your model
+```
+### **Example for image **
+
+#### data from local, model from local
+
+```bash
+$ python3 toolbox.py -d cifar10 -t privacy -c 10 -m mymodel 
+```
+#### data from hugging face, model from local
+```bash
+$ python3 toolbox.py -d hf_dataset --hf_dataset uoft-cs/cifar10 --hf_text_field img --hf_label_field label -t privacy -c 10 -m mymodel
+```
+#### data from local, model from hugging face
+not possible
+
+#### data from hf, model from hf
+not possible
+
+### **Example for nlp **
+
+#### data local, model local
+```bash
+$ python3 toolbox.py -d imdb -t privacy_NLP -c 10 -m BertForSequenceClassification
+```
+#### data from hugging face, model local
+
+```bash
+$ python3 toolbox.py -d hf_dataset --hf_dataset stanfordnlp/imdb --hf_text_field text --hf_label_field label -t privacy_NLP -c 10 -m BertForSequenceClassification
+```
+#### data local, model hf
+```bash
+$ python3 toolbox.py -d imdb -t privacy_NLP -c 10 -m AutoModelForSequenceClassification --model_name philipobiorah/bert-imdb-model
+```
+#### data hf, model hf
+```bash
+$ python3 toolbox.py -d hf_dataset --hf_dataset stanfordnlp/imdb --hf_text_field text --hf_label_field label -t privacy_NLP -c 10 -m AutoModelForSequenceClassification --model_name philipobiorah/bert-imdb-model
 ```
 
 ### 5. **Perform Data Poisoning**
@@ -221,7 +310,39 @@ To generate poisoned data and evaluate the attack effect, execute:
 
 ```bash
 $ python3 toolbox.py -d <dataset> -m <model> -t poison -c <nb_classes> -s <patch_size> -test
+- <dataset>: Specify your dataset (e.g., "cifar10", "mnist", "mydata"，etc.).
+- <nb_classes>: Specify with the number of classes in your dataset.
+- <model>:Specify your model.
+- <patch_size>：Specify the size of trigger image.
 ```
+### **Example for image **
+
+#### data from local, model from local
+
+```bash
+$ python3 toolbox.py -d cifar10 -m mymodel -t poison -c 10 -s 8 -test
+```
+#### data from hugging face, model from local
+```bash
+$ python3 toolbox.py -d hf_dataset --hf_dataset uoft-cs/cifar10 --hf_text_field img --hf_label_field label -m mymodel -t poison -c 10 -s 8 -test
+```
+#### data from local, model from hugging face
+not possible
+
+#### data from hf, model from hf
+not possible
+
+### **Example for nlp **
+
+#### data local, model local
+not possible
+#### data from hugging face, model local
+not possible
+#### data local, model hf
+not possible
+#### data hf, model hf
+not possible
+
 If just need posioned data, execute:
 
 ```bash
@@ -229,8 +350,37 @@ $ python3 toolbox.py -d <dataset> -m <model> -t poison -c <nb_classes> -s <patch
 - <dataset>: Specify your dataset (e.g., "imdb").
 - <model>:Specify your model (e.g., "BertForSequenceClassification'", "mymodel").
 - <nb_classes>: Specify with the number of classes in your dataset.
-- <patch_size> Specify the patch size for the poison data.
+- <patch_size>：Specify the size of trigger image.
 ```
+
+### **Example for image **
+
+#### data from local, model from local
+
+```bash
+$ python3 toolbox.py -d cifar10 -m mymodel -t poison -c 10 -s 8 
+```
+#### data from hugging face, model from local
+```bash
+$ python3 toolbox.py -d hf_dataset --hf_dataset uoft-cs/cifar10 --hf_text_field img --hf_label_field label -m mymodel -t poison -c 10 -s 8 
+```
+#### data from local, model from hugging face
+not possible
+
+#### data from hf, model from hf
+not possible
+
+### **Example for nlp **
+
+#### data local, model local
+not possible
+#### data from hugging face, model local
+not possible
+#### data local, model hf
+not possible
+#### data hf, model hf
+not possible
+
 
 ### **6. Explain Model Predictions Using LIME**
 
@@ -238,10 +388,36 @@ To generate explanations for model predictions, use:
 
 ```bash
 $ python toolbox.py -t explain -m <model> -c <nb_classes> -ch <num_channels>
-- <model>:Specify your model (e.g., "BertForSequenceClassification'", "mymodel").
+- <model>:Specify your model 
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <num_channels>: Specify with the number of channels in your uploaded images.
 ```
+### **Example for image **
+
+#### data from local, model from local
+```bash
+$ python3 toolbox.py -m mymodel -t explain -c 10 -ch 1
+```
+
+#### data from hugging face, model from local
+not possible
+#### data from local, model from hugging face
+not possible
+
+#### data from hf, model from hf
+not possible
+
+### **Example for nlp **
+
+#### data local, model local
+not possible
+#### data from hugging face, model local
+not possible
+#### data local, model hf
+not possible
+#### data hf, model hf
+not possible
+
 ### **7. Explain Model Predictions Using GEEX**
 
 To generate explanations with GEEX for model predictions, use:
@@ -252,51 +428,30 @@ $ python toolbox.py -t explain_geex -m <model> -c <nb_classes> -ch <num_channels
 - <nb_classes>: Specify with the number of classes in your dataset.
 - <num_channels>: Specify with the number of channels in your uploaded images.
 ```
-## **Example**
-### **1. Evaluate CLEVER Scores for Model Robustness:**
-```bash
-$ python3 toolbox.py -d cifar10 -t robustness_clever -c 10 -m mymodel
-```
+### **Example for image **
 
-### **2. Evaluate SPADE Scores for Model Robustness:**
-Fir Image:
+#### data from local, model from local
 ```bash
-$ python3 toolbox.py -t robustness_spade -d cifar10 -c 10 -m mymodel
+$ python3 toolbox.py -m mymodel -t explain_geex -c 10 -ch 1
 ```
-FOR NLP:
-```bash
-$ python3 toolbox.py -t robustness_spade_NLP -d imdb -c 2 -m BertModel
-```
+#### data from hugging face, model from local
+not possible
+#### data from local, model from hugging face
+not possible
 
-### **3. Evaluate Single SPADE Scores for Data Robustness:**
-```bash
-$ python3 toolbox.py -d cifar10 -t robustness_poisonability -c 10 -m mymodel --sample_index 6
-```
+#### data from hf, model from hf
+not possible
 
-### **4. Assess Privacy (SHAPr Leakage):**
-For Image:
-```bash
-$ python3 toolbox.py -d cifar10 -t privacy -c 10 -m mymodel 
-```
-For NLP
-```bash
-$ python3 toolbox.py -d imdb -t privacy_NLP -c 10 -m BertForSequenceClassification
-```
+### **Example for nlp **
 
-### **5. Perform Data Poisoning:**
-```bash
-$ python3 toolbox.py -d cifar10 -m mymodel -t poison -c 10 -s 8 -test
-```
-
-### **6. Explain Model Predictions Using LIME:**
-```bash
-$ python3 toolbox.py -d mnist -m mymodel -t explain -c 10 -ch 1
-```
-
-### **7. Explain Model Predictions Using GEEX:**
-```bash
-$ python3 toolbox.py -d mnist -m mymodel -t explain_geex -c 10 -ch 1 
-```
+#### data local, model local
+not possible
+#### data from hugging face, model local
+not possible
+#### data local, model hf
+not possible
+#### data hf, model hf
+not possible
 
 ## **NOTES**
 - For data poisoning, adjust the patch_size, learning rates, and other parameters as needed.
