@@ -5,7 +5,7 @@ This repository contains a set of utilities for evaluating and performing advers
 ## **Features**
 
 - **CLEVER Scores Calculation**: Assess the robustness of a model by calculating [CLEVER scores](https://openreview.net/pdf?id=BkUHlMZ0b).  
-  A higher CLEVER score indicates better network robustness, as the smallest hostile disturbance may have a larger Lp norm. The value range depends on the radius size, which is 0 - 5 by default, and can be modified in the function `toolbox/compute_untargeted_clever()`.
+  A higher CLEVER score indicates better network robustness, as the smallest hostile disturbance may have a larger Lp norm. The value range depends on the radius size, which is 0 - 5 by default, and can be modified in the function `toolbox/compute_untargeted_clever()`. A smaller CLEVER score indicates higher robustness, while a larger score indicates greater vulnerability to adversarial attacks.
 
 - **SPADE Scores Calculation**: Assess the robustness of a model by calculating [SPADE scores](https://arxiv.org/pdf/2102.03716).  
   The SPADE score ranges between 0 and 1, where 1 indicates that the model is robust and accurately learns the input-output structure, while values closer to 0 suggest the model might not be capturing the essential data structure.
