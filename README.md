@@ -11,7 +11,7 @@ This repository contains a set of utilities for evaluating and performing advers
   The SPADE score ranges between 0 and 1, where 1 indicates that the model is robust and accurately learns the input-output structure, while values closer to 0 suggest the model might not be capturing the essential data structure.
 
 - **Privacy Assessment**: Evaluate model privacy using [SHAPr leakage metrics](https://arxiv.org/abs/2112.02230).  
-  A higher final SHAPr score for a training sample means it is more vulnerable to privacy attacks. The values range from 0 - 1.
+  A higher final SHAPr score for a training sample means it is more vulnerable to privacy attacks. The values range from 0 - 1. A higher value means a higher membership privacy risk.
 
 - **Data Poisoning**: Perform data poisoning attacks to evaluate model resilience against adversarial examples.  
   The [Hidden Trigger Backdoor Attack Sleeper Agent](https://arxiv.org/pdf/2106.08970) is used for this. The default `class_source` is 0 (source class), and `class_target` is 1 (target class for misclassification). These values can be modified in `toolbox.py/class_source` and `toolbox.py/class_target`.
