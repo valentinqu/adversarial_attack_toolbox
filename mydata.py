@@ -60,6 +60,8 @@ def load_mydata():
     y_train = [dataset[i][1] for i in range(len(train_set))]
     x_test = [dataset[i][0] for i in range(len(test_set))]
     y_test = [dataset[i][1] for i in range(len(test_set))]
+
+    print("Example image shape:", x_train[0].shape)
     
     return x_train, y_train, x_test, y_test, min_value, max_value
 

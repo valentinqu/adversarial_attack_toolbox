@@ -2,6 +2,7 @@ import argparse
 import ruamel.yaml as yaml
 import torch
 import transformers  # Import for general utility
+from transformers import AutoConfig
 
 # Import Custom Modules
 from model import Net  # Ensure Net class is defined in model.py
@@ -84,7 +85,8 @@ def main():
         try:
             model_class = getattr(transformers, args.model, None)
             if model_class:
-                model = model_class.from_pretrained(args.model_name)
+                config = AutoConfig.from_pretrained(args.model_name, output_hidden_states=True)
+                model = model_class.from_pretrained(args.model_name, config=config)
                 print(f"Successfully loaded Hugging Face model: {args.model}.{args.model_name}")
             else:
                 print('Model not found. Please specify a custom model.')

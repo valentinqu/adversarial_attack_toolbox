@@ -21,6 +21,9 @@ from art.utils import to_categorical
 from lime import lime_image
 from GEEX import geex
 from utils import *
+from captum.attr import IntegratedGradients
+from transformers import AutoTokenizer, pipeline
+from lime.lime_text import LimeTextExplainer
 
 
 def calculate_clever_scores(nb_classes, model, x_test, device_type='gpu'):
@@ -98,6 +101,14 @@ def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, NLP, de
         )
 
         SHAPr_leakage = SHAPr(classifier, x_train_np, y_train_np, x_test_np, y_test_np, enable_logging=True)
+        # output the most privacy risky sentence
+        leakage_scores = SHAPr_leakage
+        sorted_indices = np.argsort(leakage_scores)[::-1]
+        print("\nTop 5 most privacy-risky test samples:")
+        for i in sorted_indices[:5]:
+            print(f"[Leakage Score: {leakage_scores[i]:.4f}]   {x_test[i]}")
+        average_leakage = np.mean(leakage_scores)
+        print(f"SHAPr Score: {average_leakage:.4f}")
 
     else:
         input_shape = x_train.shape[1:]
@@ -228,10 +239,36 @@ def poison(nb_classes, test, trigger_path, patch_size, x_train, x_test, y_train,
 
 def explain(nb_classes, num_channels, model):
     """Generate model explanations using LIME."""
-    device_type = '"cuda:0' if torch.cuda.is_available() else 'cpu'
-
+    device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    # if NLP:
+    #     print("Running LIME explanation for NLP model...")
+    #     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    #
+    #     def predict_proba(texts):
+    #         model.eval()
+    #         inputs = tokenizer(texts, return_tensors="pt", padding=True, truncation=True)
+    #         inputs = {k: v.to(model.device) for k, v in inputs.items()}
+    #         with torch.no_grad():
+    #             outputs = model(**inputs)
+    #             probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+    #         return probs.cpu().numpy()
+    #
+    #     x_test = ["This movie was fantastic!", "I really hated this film."]
+    #
+    #     explainer = LimeTextExplainer(class_names=[str(i) for i in range(nb_classes)])
+    #     output_dir = 'explained_nlp_lime'
+    #     os.makedirs(output_dir, exist_ok=True)
+    #
+    #     for i, text in enumerate(x_test):
+    #         explanation = explainer.explain_instance(text, predict_proba, num_features=10)
+    #         print(f"\nLIME explanation for sample {i}:")
+    #         print(explanation.as_list())
+    #         html_path = os.path.join(output_dir, f"lime_nlp_{i}.html")
+    #         explanation.save_to_file(html_path)
+    #         print(f"Saved LIME explanation HTML: {html_path}")
+    #
+    # else:
     from skimage.segmentation import felzenszwalb  # Ensure felzenszwalb is imported
-
     # Define transformations
     transform = transforms.Compose([
         transforms.ToTensor(),
@@ -269,6 +306,8 @@ def explain(nb_classes, num_channels, model):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    explanation_strengths = []
+
     for i, (images, labels) in enumerate(dataloader):
         images = images.numpy()
         sample = images[0]  # Shape: (C, H, W)
@@ -284,6 +323,11 @@ def explain(nb_classes, num_channels, model):
             batch_size=1
         )
 
+        # Extract explanation weights
+        weights = dict(explanation.local_exp[explanation.top_labels[0]])  # {segment: weight}
+        total_strength = sum(abs(w) for w in weights.values())
+        explanation_strengths.append(total_strength)
+
         temp, mask = explanation.get_image_and_mask(
             label=explanation.top_labels[0],
             positive_only=False,
@@ -295,6 +339,45 @@ def explain(nb_classes, num_channels, model):
         output_filename = f'{output_dir}/explanation_{i}.png'
         plt.imsave(output_filename, img_boundary)
         print(f'Saved image: {output_filename}')
+
+    def predict_fn(images_np):
+        images_tensor = torch.tensor(images_np).permute(0, 3, 1, 2).float()
+        if num_channels == 1 and images_tensor.shape[1] != 1:
+            images_tensor = images_tensor[:, 0:1, :, :]
+        outputs = classifier.predict(images_tensor)
+        return outputs
+
+    output_dir = 'explained_images'
+    os.makedirs(output_dir, exist_ok=True)
+
+    for i, (images, labels) in enumerate(dataloader):
+        images = images.numpy()
+        sample = images[0]
+        sample = np.transpose(sample, (1, 2, 0))
+        explainer = lime_image.LimeImageExplainer()
+        explanation = explainer.explain_instance(
+            sample,
+            classifier_fn=predict_fn,
+            top_labels=1,
+            hide_color=1,
+            num_samples=1000,
+            batch_size=1,
+        )
+
+        temp, mask = explanation.get_image_and_mask(
+            label=explanation.top_labels[0],
+            positive_only=False,
+            num_features=10,
+            hide_rest=False,
+        )
+        img_boundary = mark_boundaries(temp, mask)
+        output_filename = os.path.join(output_dir, f'explanation_{i}.png')
+        plt.imsave(output_filename, img_boundary)
+        print(f'Saved image: {output_filename}')
+
+    # Output one final value
+    lime_score = np.mean(explanation_strengths)
+    print(f"\nLIME Score (avg explanation strength): {lime_score:.4f}")
 
 def explain_geex(nb_classes, num_channels, model):
     """Generate model explanations using GEEX, and save results to disk."""
@@ -362,13 +445,27 @@ def calculate_spade(nb_classes, model, x_test, NLP):
                 attention_mask = attention_mask.to(device)
 
                 # Input features: Average word embeddings
-                embeddings = model.embeddings(input_ids)
+                if hasattr(model, 'bert'):
+                    embeddings = model.bert.embeddings(input_ids)
+                elif hasattr(model, 'distilbert'):
+                    embeddings = model.distilbert.embeddings(input_ids)
+                elif hasattr(model, 'roberta'):
+                    embeddings = model.roberta.embeddings(input_ids)
+                else:
+                    embeddings = model.get_input_embeddings()(input_ids)
                 avg_embeddings = embeddings.mean(dim=1).cpu().numpy()
                 input_features.append(avg_embeddings)
 
                 # Output features: Average of last hidden state
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                last_hidden_state = outputs.last_hidden_state
+                if hasattr(outputs, "hidden_states") and outputs.hidden_states is not None:
+                    last_hidden_state = outputs.hidden_states[-1]
+                elif hasattr(outputs, "last_hidden_state"):
+                    last_hidden_state = outputs.last_hidden_state
+                elif isinstance(outputs, tuple) and len(outputs) > 0:
+                    last_hidden_state = outputs[0]
+                else:
+                    raise ValueError("Cannot extract hidden state from model output.")
                 avg_output = last_hidden_state.mean(dim=1).cpu().numpy()
                 output_features.append(avg_output)
 

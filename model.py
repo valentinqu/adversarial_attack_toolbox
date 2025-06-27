@@ -8,6 +8,7 @@ from torch import Tensor
 import matplotlib.pyplot as plt
 import torchvision
 from torchvision import models, transforms
+
 '''
 # for CIFAR-10
 class Net(nn.Module):
@@ -47,7 +48,6 @@ class Net(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
-
 
 if __name__ == '__main__':
     pass
