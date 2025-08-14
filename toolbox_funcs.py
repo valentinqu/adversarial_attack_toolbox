@@ -60,6 +60,9 @@ def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, NLP, de
 
     x_train = x_train[:10]  # Use the first 100 samples for training, delete this range if you want to use all samples
     y_train = y_train[:10]  # Use the first 100 samples for training, delete this range if you want to use all samples
+
+    x_test = x_test[:10]
+    y_test = y_test[:10]
     if NLP:
         # Using TextDataset and DataLoader to transform text data into input_ids+attention_mask tensor
         train_set = TextDataset(x_train, y_train, max_length=max_length)
@@ -127,10 +130,10 @@ def calculate_SHAPr(nb_classes, model, x_train, y_train, x_test, y_test, NLP, de
 def poison(nb_classes, test, trigger_path, patch_size, x_train, x_test, y_train, y_test, min_, max_, model):
     """Perform data poisoning attack."""
     device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    x_train_np = x_train.numpy().astype(np.float32)
-    x_test_np = x_test.numpy().astype(np.float32)
-    y_train_np = y_train.numpy()
-    y_test_np = y_test.numpy()
+    x_train_np = np.transpose(np.array(x_train, dtype=np.float32), (0, 3, 1, 2))
+    x_test_np = np.transpose(np.array(x_test, dtype=np.float32), (0, 3, 1, 2))
+    y_train_np = np.array(y_train)
+    y_test_np = np.array(y_test)
 
     y_train_np = to_one_hot(y_train_np, nb_classes)
     y_test_np = to_one_hot(y_test_np, nb_classes)
@@ -240,34 +243,6 @@ def poison(nb_classes, test, trigger_path, patch_size, x_train, x_test, y_train,
 def explain(nb_classes, num_channels, model):
     """Generate model explanations using LIME."""
     device_type = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    # if NLP:
-    #     print("Running LIME explanation for NLP model...")
-    #     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    #
-    #     def predict_proba(texts):
-    #         model.eval()
-    #         inputs = tokenizer(texts, return_tensors="pt", padding=True, truncation=True)
-    #         inputs = {k: v.to(model.device) for k, v in inputs.items()}
-    #         with torch.no_grad():
-    #             outputs = model(**inputs)
-    #             probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
-    #         return probs.cpu().numpy()
-    #
-    #     x_test = ["This movie was fantastic!", "I really hated this film."]
-    #
-    #     explainer = LimeTextExplainer(class_names=[str(i) for i in range(nb_classes)])
-    #     output_dir = 'explained_nlp_lime'
-    #     os.makedirs(output_dir, exist_ok=True)
-    #
-    #     for i, text in enumerate(x_test):
-    #         explanation = explainer.explain_instance(text, predict_proba, num_features=10)
-    #         print(f"\nLIME explanation for sample {i}:")
-    #         print(explanation.as_list())
-    #         html_path = os.path.join(output_dir, f"lime_nlp_{i}.html")
-    #         explanation.save_to_file(html_path)
-    #         print(f"Saved LIME explanation HTML: {html_path}")
-    #
-    # else:
     from skimage.segmentation import felzenszwalb  # Ensure felzenszwalb is imported
     # Define transformations
     transform = transforms.Compose([
@@ -294,6 +269,7 @@ def explain(nb_classes, num_channels, model):
         # images_np shape: (N, H, W, C)
         # Convert to (N, C, H, W)
         images_tensor = torch.tensor(images_np).permute(0, 3, 1, 2).float()
+        # Resize to 28x28 if necessary (e.g., for MNIST-style models)
         # Decide whether to convert the number of channels based on num_channels
         if num_channels == 1 and images_tensor.shape[1] != 1:
             # Convert image to single channel
@@ -378,6 +354,56 @@ def explain(nb_classes, num_channels, model):
     # Output one final value
     lime_score = np.mean(explanation_strengths)
     print(f"\nLIME Score (avg explanation strength): {lime_score:.4f}")
+
+
+def explain_LIME(nb_classes, model, tokenizer, x_train, y_train, x_test, y_test, class_names=None, sample_idx=None):
+    """
+    Unified LIME explanation function for both NLP
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    if sample_idx is None:
+        sample_idx = random.randint(0, len(x_test) - 1)
+
+    text_sample = x_test[sample_idx]
+    print(f"Explaining the  {sample_idx}. test sample...")
+
+    def softmax(x):
+        e_x = np.exp(x - np.max(x, axis=1, keepdims=True))
+        return e_x / e_x.sum(axis=1, keepdims=True)
+
+    def predict_proba(texts):
+        inputs = tokenizer(
+            texts,
+            padding=True,
+            truncation=True,
+            max_length=128,
+            return_tensors="pt"
+        ).to(device)
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+
+        logits = outputs.logits.detach().cpu().numpy()
+        return softmax(logits)
+
+    explainer = LimeTextExplainer(class_names=class_names)
+
+    explanation = explainer.explain_instance(
+        text_instance=text_sample,
+        classifier_fn=predict_proba,
+        num_features=10,
+        num_samples=100
+    )
+    feature_list = explanation.as_list()
+    print("\nThe binary impact of words:")
+    for word, score in feature_list:
+        if score > 0:
+            print(f"{word}: 1 (positive)")
+        else:
+            print(f"{word}: 0 (negative)")
+    explanation.save_to_file("lime_nlp_explanation.html")
+    print("[LIME] Explanation saved to lime_nlp_explanation.html")
 
 def explain_geex(nb_classes, num_channels, model):
     """Generate model explanations using GEEX, and save results to disk."""
@@ -498,6 +524,7 @@ def calculate_spade_single(nb_classes, model, x_test, sample_index=0):
     model.eval()
 
     # Ensure sample_index is in range
+    x_test = np.array(x_test)
     if sample_index < 0 or sample_index >= x_test.shape[0]:
         raise ValueError("sample_index is out of range.")
 
@@ -512,10 +539,10 @@ def calculate_spade_single(nb_classes, model, x_test, sample_index=0):
         indices = list(range(max_samples))
 
     x_sub = x_test[indices]
-    x_sub = x_sub.to(device)
+    x_sub = torch.tensor(x_sub, dtype=torch.float32).permute(0, 3, 1, 2).to(device)
 
     with torch.no_grad():
-        input_features = x_sub.view(x_sub.size(0), -1).cpu().numpy()
+        input_features = x_sub.reshape(x_sub.size(0), -1).cpu().numpy()
         outputs = model(x_sub).cpu().numpy()
 
     score = spade_score(input_features, outputs)

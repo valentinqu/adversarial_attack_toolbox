@@ -2,7 +2,7 @@ import argparse
 import ruamel.yaml as yaml
 import torch
 import transformers  # Import for general utility
-from transformers import AutoConfig
+from transformers import AutoConfig, AutoTokenizer
 
 # Import Custom Modules
 from model import Net  # Ensure Net class is defined in model.py
@@ -129,6 +129,9 @@ def main():
         if args.num_channels is None:
             raise ValueError('Please specify --num_channels for model explanation task.')
         explain_geex(args.nb_classes, args.num_channels, model)
+    elif args.task_need == 'explain_nlp':
+        tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+        explain_LIME(args.nb_classes, model, tokenizer, x_train, y_train, x_test, y_test)
 
     elif args.task_need == 'robustness_poisonability':
         calculate_spade_single(args.nb_classes, model, x_test, sample_index=args.sample_index)
