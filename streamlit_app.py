@@ -85,7 +85,7 @@ if task_type == "Image (Image Processing)":
 
         if dataset_source == "Customised dataset":
             st.markdown("##### Custom Image Dataset Upload")
-            st.info("📁 Upload your custom image dataset files")
+            st.info("Upload your custom image dataset files")
 
             # Image dataset upload
             st.markdown("**Required files for Image dataset:**")
@@ -119,7 +119,7 @@ if task_type == "Image (Image Processing)":
                 with open(f"{image_data_dir}/labels.csv", "wb") as f:
                     f.write(labels_file.getbuffer())
 
-                st.success("✅ Labels file uploaded successfully!")
+                st.success("Labels file uploaded successfully!")
 
                 # Preview the uploaded file
                 import pandas as pd
@@ -132,28 +132,28 @@ if task_type == "Image (Image Processing)":
 
                     # Check if it has at least 2 columns
                     if df.shape[1] >= 2:
-                        st.success("✅ CSV file format appears correct!")
+                        st.success("CSV file format appears correct!")
+
+                        if image_files is not None and len(image_files) > 0:
+                            # Save image files
+                            for image_file in image_files:
+                                with open(f"{images_dir}/{image_file.name}", "wb") as f:
+                                    f.write(image_file.getbuffer())
+                            st.success(f"{len(image_files)} image files uploaded successfully!")
+                            hf_dataset = "custom_image"  # 完全配置好的自定义数据集
+                        else:
+                            hf_dataset = "custom_image_partial"  # 只有labels的部分配置
+                            st.warning("Please also upload image files to complete the custom dataset setup.")
                     else:
-                        st.error("❌ CSV should have at least 2 columns (filename, label).")
-                        st.stop()
+                        st.error("CSV should have at least 2 columns (filename, label).")
+                        hf_dataset = None
 
                 except Exception as e:
                     st.error(f"Error reading CSV file: {str(e)}")
-                    st.stop()
-
-            if image_files is not None and len(image_files) > 0:
-                # Save image files
-                for image_file in image_files:
-                    with open(f"{images_dir}/{image_file.name}", "wb") as f:
-                        f.write(image_file.getbuffer())
-
-                st.success(f"✅ {len(image_files)} image files uploaded successfully!")
-
-            if labels_file is not None:
-                hf_dataset = "custom_image"  # 标识使用自定义图像数据集
+                    hf_dataset = None
             else:
-                st.warning("Please upload the labels CSV file to proceed.")
-                st.stop()
+                hf_dataset = None
+                st.warning("Please upload the labels CSV file to use custom dataset, or switch to HuggingFace dataset.")
         else:
             # HuggingFace dataset configuration for images
             hf_dataset = st.selectbox(
@@ -263,6 +263,12 @@ if task_type == "Image (Image Processing)":
                 if hf_dataset == "custom_image":
                     # 使用自定义图像数据集
                     cmd_parts.extend(["-d", "mydata"])
+                elif hf_dataset == "custom_image_partial":
+                    # 部分配置的自定义数据集，跳过此命令
+                    continue
+                elif hf_dataset is None:
+                    # 没有有效数据集，跳过此命令
+                    continue
                 else:
                     # 使用HuggingFace数据集
                     cmd_parts.extend(["-d", "hf_dataset"])
@@ -705,7 +711,7 @@ with col1:
 
     if dataset_source == "Customised dataset":
         st.markdown("##### Custom Dataset Upload")
-        st.info("📁 Upload your custom NLP dataset files")
+        st.info("Upload your custom NLP dataset files")
 
         # NLP dataset upload
         st.markdown("**Required files for NLP dataset:**")
@@ -726,15 +732,15 @@ with col1:
         )
 
         if train_file is not None:
-            # Create mydata/nlp directory
-            nlp_data_dir = "mydata/nlp"
-            os.makedirs(nlp_data_dir, exist_ok=True)
+            # Create mydata/nlp/train directory
+            nlp_train_dir = "mydata/nlp/train"
+            os.makedirs(nlp_train_dir, exist_ok=True)
 
-            # Save training file
-            with open(f"{nlp_data_dir}/train.csv", "wb") as f:
+            # Save training file to directory
+            with open(f"{nlp_train_dir}/train.csv", "wb") as f:
                 f.write(train_file.getbuffer())
 
-            st.success("✅ Training file uploaded successfully!")
+            st.success("Training file uploaded successfully!")
 
             # Preview the uploaded file
             import pandas as pd
@@ -747,33 +753,40 @@ with col1:
 
                 # Check required columns
                 if 'text' in df.columns and 'label' in df.columns:
-                    st.success("✅ Required columns 'text' and 'label' found!")
+                    st.success("Required columns 'text' and 'label' found!")
+                    hf_dataset = "custom_nlp"  # 标识使用自定义数据集
                 else:
-                    st.error("❌ Missing required columns. Please ensure your CSV has 'text' and 'label' columns.")
-                    st.stop()
+                    st.error("Missing required columns. Please ensure your CSV has 'text' and 'label' columns.")
+                    hf_dataset = None  # 无效数据集
 
             except Exception as e:
                 st.error(f"Error reading CSV file: {str(e)}")
-                st.stop()
+                hf_dataset = None  # 无效数据集
+
+        else:
+            hf_dataset = None  # 没有上传文件
+            st.warning("Please upload the training CSV file to use custom dataset, or switch to HuggingFace dataset.")
 
         if test_file is not None:
-            # Save testing file
-            with open(f"{nlp_data_dir}/test.csv", "wb") as f:
+            # Create mydata/nlp/test directory and save testing file
+            nlp_test_dir = "mydata/nlp/test"
+            os.makedirs(nlp_test_dir, exist_ok=True)
+            with open(f"{nlp_test_dir}/test.csv", "wb") as f:
                 f.write(test_file.getbuffer())
-            st.success("✅ Testing file uploaded successfully!")
-
-        if train_file is not None:
-            hf_dataset = "custom_nlp"  # 标识使用自定义数据集
-        else:
-            st.warning("Please upload at least the training CSV file to proceed.")
-            st.stop()
+            st.success("Testing file uploaded successfully!")
     else:
         # HuggingFace dataset configuration
         hf_dataset = st.selectbox(
             "Choose HuggingFace Dataset:",
             ["imdb"],
-            help="Currently supports IMDB sentiment analysis datasets based on test documentation"
+            help="Currently supports IMDB sentiment analysis datasets",
+            key="nlp_hf_dataset_main"
         )
+
+        st.markdown("**Other datasets (coming soon):**")
+        disabled_datasets = ["rotten_tomatoes", "amazon_polarity", "yelp_polarity", "ag_news", "emotion", "sst2"]
+        for dataset in disabled_datasets:
+            st.markdown(f"  • {dataset} *(not available)*")
 
     # 模型选择
     st.markdown("#### Model Selection")
@@ -823,7 +836,10 @@ with col2:
             # 数据集参数
             if hf_dataset == "custom_nlp":
                 # 使用自定义NLP数据集
-                cmd_parts.extend(["-d", "mydata"])
+                cmd_parts.extend(["-d", "mydata_nlp"])
+            elif hf_dataset is None:
+                # 没有有效数据集，跳过此命令
+                continue
             else:
                 # 使用HuggingFace数据集
                 cmd_parts.extend(["-d", "hf_dataset"])
@@ -902,7 +918,11 @@ st.subheader("Step 3: Execute")
 col_exec1, col_exec2, col_exec3 = st.columns([1, 1, 2])
 
 with col_exec1:
-    if st.button("Operating analysis", type="primary", use_container_width=True, disabled=not analysis_methods):
+    # 检查数据集是否有效
+    dataset_valid = hf_dataset is not None and hf_dataset not in ["custom_image_partial"]
+    execution_disabled = not analysis_methods or not dataset_valid
+
+    if st.button("Operating analysis", type="primary", use_container_width=True, disabled=execution_disabled):
         st.session_state.start_execution = True
 
 with col_exec2:
@@ -1191,27 +1211,3 @@ Output:
         if st.button("Run new analysis"):
             st.experimental_rerun()
 
-# 侧边栏信息
-st.sidebar.title("Test Statistics")
-st.sidebar.markdown("### Document-based test results")
-
-test_results = {
-    "SPADE-NLP": {
-        "bert-base-uncased": "1.0056",
-        "distilbert-base-uncased": "1.0072",
-        "roberta-base": "1.0073"
-    },
-    "SHAPr-NLP": {
-        "bert-base-uncased": "1.0",
-        "distilbert-base-uncased": "1.0",
-        "roberta-base": "1.0"
-    }
-}
-
-for method, results in test_results.items():
-    st.sidebar.markdown(f"**{method}**")
-    for model, score in results.items():
-        st.sidebar.text(f"• {model}: {score}")
-
-st.sidebar.markdown("---")
-st.sidebar.info("These results are taken from the project test documentation and can be used as a reference benchmark")

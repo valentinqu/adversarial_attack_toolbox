@@ -7,6 +7,7 @@ import torch
 from torchvision.transforms import ToTensor, Normalize
 import numpy as np
 from PIL import Image
+import csv
 class myImageDataset(Dataset):
     def __init__(self, img_dir, img_label_dir, transform=None):
         super().__init__()
@@ -63,6 +64,60 @@ def load_mydata():
 
     print("Example image shape:", x_train[0].shape)
     
+    return x_train, y_train, x_test, y_test, min_value, max_value
+
+def load_mydata_nlp():
+    """
+    Load local NLP dataset from mydata/nlp/train.csv and mydata/nlp/test.csv.
+    CSVs must contain columns: 'text' and 'label'.
+    Returns lists of texts and labels for train/test, plus dummy min/max.
+    """
+    # New directory-based paths (preferred)
+    train_dir_path = 'mydata/nlp/train/train.csv'
+    test_dir_path = 'mydata/nlp/test/test.csv'
+    # Backward-compatible single-file paths
+    train_path = 'mydata/nlp/train.csv'
+    test_path = 'mydata/nlp/test.csv'
+
+    # Resolve actual train csv path
+    if os.path.exists(train_dir_path):
+        resolved_train = train_dir_path
+    elif os.path.exists(train_path):
+        resolved_train = train_path
+    else:
+        raise FileNotFoundError("NLP train.csv not found. Expected at mydata/nlp/train/train.csv or mydata/nlp/train.csv")
+
+    df_train = pd.read_csv(resolved_train)
+    if 'text' not in df_train.columns or 'label' not in df_train.columns:
+        raise ValueError("train.csv must contain 'text' and 'label' columns")
+
+    x_train = df_train['text'].astype(str).tolist()
+    y_train = df_train['label'].tolist()
+
+    # Resolve test csv if exists
+    if os.path.exists(test_dir_path):
+        resolved_test = test_dir_path
+    elif os.path.exists(test_path):
+        resolved_test = test_path
+    else:
+        resolved_test = None
+
+    if resolved_test is not None:
+        df_test = pd.read_csv(resolved_test)
+        if 'text' not in df_test.columns or 'label' not in df_test.columns:
+            raise ValueError("test.csv must contain 'text' and 'label' columns")
+        x_test = df_test['text'].astype(str).tolist()
+        y_test = df_test['label'].tolist()
+    else:
+        # If no test.csv, split from train
+        from sklearn.model_selection import train_test_split
+        x_train, x_test, y_train, y_test = train_test_split(
+            x_train, y_train, test_size=0.2, random_state=42, stratify=y_train if len(set(y_train)) > 1 else None
+        )
+
+    # NLP does not use min/max in current pipelines; return dummies
+    min_value, max_value = 0.0, 1.0
+
     return x_train, y_train, x_test, y_test, min_value, max_value
 
 if __name__ == '__main__':
