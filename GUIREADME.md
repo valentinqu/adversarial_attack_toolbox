@@ -9,7 +9,7 @@ This GUI provides an intuitive interface for the Adversarial Attack Toolbox, all
 ### Prerequisites
 
 - Python environment with required dependencies installed
-- Streamlit installed (`pip install streamlit`)
+- Streamlit installed (`pip install streamlit==1.23.1`)
 - Access to the adversarial attack toolbox backend
 
 ### Running the GUI
